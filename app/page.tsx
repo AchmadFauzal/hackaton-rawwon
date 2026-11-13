@@ -18,6 +18,7 @@ import {
   Mountain,
   Sparkles,
   SlidersHorizontal,
+  Globe,
 } from "lucide-react";
 import {
   FULL_INDONESIA_SAWAH_DATA,
@@ -37,64 +38,182 @@ const MapComponent = dynamic(() => import("@/components/map"), {
   ),
 });
 
-const MONTHS = [
-  { value: 1, label: "01 - Januari" },
-  { value: 2, label: "02 - Februari" },
-  { value: 3, label: "03 - Maret" },
-  { value: 4, label: "04 - April" },
-  { value: 5, label: "05 - Mei" },
-  { value: 6, label: "06 - Juni" },
-  { value: 7, label: "07 - Juli" },
-  { value: 8, label: "08 - Agustus" },
-  { value: 9, label: "09 - September" },
-  { value: 10, label: "10 - Oktober" },
-  { value: 11, label: "11 - November" },
-  { value: 12, label: "12 - Desember" },
+type Lang = "en" | "id";
+
+const MONTHS_DATA = [
+  { value: 1, en: "01 - January", id: "01 - Januari" },
+  { value: 2, en: "02 - February", id: "02 - Februari" },
+  { value: 3, en: "03 - March", id: "03 - Maret" },
+  { value: 4, en: "04 - April", id: "04 - April" },
+  { value: 5, en: "05 - May", id: "05 - Mei" },
+  { value: 6, en: "06 - June", id: "06 - Juni" },
+  { value: 7, en: "07 - July", id: "07 - Juli" },
+  { value: 8, en: "08 - August", id: "08 - Agustus" },
+  { value: 9, en: "09 - September", id: "09 - September" },
+  { value: 10, en: "10 - October", id: "10 - Oktober" },
+  { value: 11, en: "11 - November", id: "11 - November" },
+  { value: 12, en: "12 - December", id: "12 - Desember" },
 ];
 
 const YEARS = ["2025", "2026", "2027", "2028"];
 
-const BASE_LEGEND_ITEMS = [
-  {
-    fase: 1,
-    color: "bg-emerald-500",
-    border: "border-emerald-700",
-    title: "Masa Tanam 1 (MT-1)",
-    desc: "Jarak dam dekat (<12 km) & kelembapan ≥72%. Padi irigasi penuh.",
+const TRANSLATIONS = {
+  en: {
+    subtitle: "NASA Space Apps • Predictive Agri-Telemetry",
+    introducing: "Introducing TerraCrop",
+    controlTitle: "Spatial & Temporal Control",
+    regencyLabel: "Regency / City",
+    yearLabel: "Year",
+    monthLabel: "Month (1–12)",
+    runningML: "RUNNING SPATIAL ML INFERENCE...",
+    runML: "Run Machine Learning Model",
+    legendTitle: "Legend & Prediction Analysis",
+    analysisPrefix: "Analysis of",
+    analysisDesc: (
+      <>
+        Polygon classification is calculated based on <b>distance to reservoir</b>,{" "}
+        <b>soil water retention</b> (Alluvial, Grumusol, Latosol, Regosol), and GPM monthly
+        rainfall. Click any paddy polygon on the map to inspect sensor telemetry.
+      </>
+    ),
+    baseLegend: [
+      {
+        fase: 1,
+        color: "bg-emerald-500",
+        border: "border-emerald-700",
+        title: "Planting Season 1 (PS-1)",
+        desc: "Close to dam (<12 km) & moisture ≥72%. Full irrigated paddy.",
+      },
+      {
+        fase: 2,
+        color: "bg-sky-500",
+        border: "border-sky-700",
+        title: "Planting Season 2 (PS-2)",
+        desc: "Soil moisture 58–71%. Recommended water-saving rice varieties.",
+      },
+      {
+        fase: 3,
+        color: "bg-amber-500",
+        border: "border-amber-700",
+        title: "Planting Season 3 (PS-3)",
+        desc: "Soil moisture 44–57%. Suitable for secondary crop rotation (corn/soybean).",
+      },
+    ],
+    mt4Legend: {
+      fase: 4,
+      color: "bg-violet-500",
+      border: "border-violet-700",
+      title: "Planting Season 4 (PS-4)",
+      desc: "Soil moisture 34–43%. Horticulture / short-cycle crops.",
+    },
+    nonTanamLegend: {
+      fase: 0,
+      color: "bg-zinc-500",
+      border: "border-zinc-700",
+      title: "Non-Planting / Fallow (Gray)",
+      desc: "Far from dam, moisture <34%, or capped at PS-3 cycle. Fallow resting phase.",
+    },
+    footerCopy: "© 2026 TerraCrop. NASA Space Apps Challenge.",
+    telemetryHeader: "Land Telemetry & Hydrology",
+    predCategory: "Prediction Category:",
+    nonPlantingBadge: "Non-Planting (Gray)",
+    plantingSeasonBadge: (fase: number) => `Planting Season ${fase}`,
+    distToDam: "Distance to Dam",
+    soilChar: "Soil Profile",
+    soilMoisture: "Soil Moisture",
+    rainfall: "Precipitation",
+    ndviIndex: "NDVI Index",
+    surfaceTemp: "Surface Temp",
+    optimalCropTitle: "Optimal Commodity Recommendation",
+    areaLabel: "Area",
+    fertilityLabel: "Fertility",
+    mapPrompt: (
+      <>
+        Click on any <span className="text-white font-semibold">paddy polygon</span> to view dam
+        proximity, soil profile, moisture, & crop recommendations.
+      </>
+    ),
   },
-  {
-    fase: 2,
-    color: "bg-sky-500",
-    border: "border-sky-700",
-    title: "Masa Tanam 2 (MT-2)",
-    desc: "Kelembapan 58–71%. Direkomendasikan padi varietas hemat air.",
+  id: {
+    subtitle: "NASA Space Apps • Predictive Agri-Telemetry",
+    introducing: "Memperkenalkan TerraCrop",
+    controlTitle: "Spatial & Temporal Control",
+    regencyLabel: "Kabupaten / Kota",
+    yearLabel: "Tahun",
+    monthLabel: "Bulan (1–12)",
+    runningML: "MENJALANKAN INFERENSI ML SPASIAL...",
+    runML: "Run Machine Learning Model",
+    legendTitle: "Legenda & Analisis Prediksi",
+    analysisPrefix: "Analisis",
+    analysisDesc: (
+      <>
+        Klasifikasi poligon dihitung berdasarkan <b>jarak lahan ke bendungan</b>,{" "}
+        <b>retensi air jenis tanah</b> (Aluvial, Grumusol, Latosol, Regosol), serta curah hujan
+        bulanan GPM. Klik area sawah pada peta untuk melihat detail sensor.
+      </>
+    ),
+    baseLegend: [
+      {
+        fase: 1,
+        color: "bg-emerald-500",
+        border: "border-emerald-700",
+        title: "Masa Tanam 1 (MT-1)",
+        desc: "Jarak dam dekat (<12 km) & kelembapan ≥72%. Padi irigasi penuh.",
+      },
+      {
+        fase: 2,
+        color: "bg-sky-500",
+        border: "border-sky-700",
+        title: "Masa Tanam 2 (MT-2)",
+        desc: "Kelembapan 58–71%. Direkomendasikan padi varietas hemat air.",
+      },
+      {
+        fase: 3,
+        color: "bg-amber-500",
+        border: "border-amber-700",
+        title: "Masa Tanam 3 (MT-3)",
+        desc: "Kelembapan 44–57%. Cocok untuk rotasi palawija (jagung/kedelai).",
+      },
+    ],
+    mt4Legend: {
+      fase: 4,
+      color: "bg-violet-500",
+      border: "border-violet-700",
+      title: "Masa Tanam 4 (MT-4)",
+      desc: "Kelembapan 34–43%. Hortikultura / tanaman umur pendek.",
+    },
+    nonTanamLegend: {
+      fase: 0,
+      color: "bg-zinc-500",
+      border: "border-zinc-700",
+      title: "Tidak Masa Tanam (Abu-abu)",
+      desc: "Jarak jauh dari dam, kelembapan <34%, atau siklus mentok MT-3. Fase bera.",
+    },
+    footerCopy: "© 2026 TerraCrop. NASA Space Apps Challenge.",
+    telemetryHeader: "Telemetry & Hidrologi Lahan",
+    predCategory: "Kategori Prediksi:",
+    nonPlantingBadge: "Non-Tanam (Abu-abu)",
+    plantingSeasonBadge: (fase: number) => `Masa Tanam ${fase}`,
+    distToDam: "Jarak ke Dam",
+    soilChar: "Karakter Tanah",
+    soilMoisture: "Kelembapan Tanah",
+    rainfall: "Curah Hujan",
+    ndviIndex: "Indeks NDVI",
+    surfaceTemp: "Suhu Permukaan",
+    optimalCropTitle: "Rekomendasi Komoditas Optimal",
+    areaLabel: "Luas",
+    fertilityLabel: "Kesuburan",
+    mapPrompt: (
+      <>
+        Klik pada <span className="text-white font-semibold">poligon sawah</span> untuk melihat
+        jarak ke bendungan, jenis tanah, kelembapan, & rekomendasi tanam.
+      </>
+    ),
   },
-  {
-    fase: 3,
-    color: "bg-amber-500",
-    border: "border-amber-700",
-    title: "Masa Tanam 3 (MT-3)",
-    desc: "Kelembapan 44–57%. Cocok untuk rotasi palawija (jagung/kedelai).",
-  },
-];
-
-const MT4_LEGEND_ITEM = {
-  fase: 4,
-  color: "bg-violet-500",
-  border: "border-violet-700",
-  title: "Masa Tanam 4 (MT-4)",
-  desc: "Kelembapan 34–43%. Hortikultura / tanaman umur pendek.",
-};
-
-const NON_TANAM_LEGEND_ITEM = {
-  fase: 0,
-  color: "bg-zinc-500",
-  border: "border-zinc-700",
-  title: "Tidak Masa Tanam (Abu-abu)",
-  desc: "Jarak jauh dari dam & kelembapan <34%. Fase bera / istirahat tanah.",
 };
 
 export default function NasaHackathonDashboard() {
+  const [lang, setLang] = useState<Lang>("en");
   const [selectedCityId, setSelectedCityId] = useState<string>("karawang");
   const [selectedYear, setSelectedYear] = useState<string>("2026");
   const [selectedMonth, setSelectedMonth] = useState<number>(11);
@@ -103,44 +222,58 @@ export default function NasaHackathonDashboard() {
   const [mlRunCount, setMlRunCount] = useState<number>(0);
   const [lastRunTimestamp, setLastRunTimestamp] = useState<string>("v2.4 LIVE");
 
-  const [selectedSawah, setSelectedSawah] = useState<ComputedSawahResult | null>(null);
+  const [selectedSawahId, setSelectedSawahId] = useState<string | null>(null);
   const [activeBasemap, setActiveBasemap] = useState<"osm" | "topo" | "satellite">("satellite");
   const [showLayerMenu, setShowLayerMenu] = useState<boolean>(false);
+
+  const t = TRANSLATIONS[lang];
 
   const currentCity =
     FULL_INDONESIA_SAWAH_DATA.find((c) => c.id === selectedCityId) ||
     FULL_INDONESIA_SAWAH_DATA[0];
 
-  const currentMonthName =
-    MONTHS.find((m) => m.value === selectedMonth)?.label.split(" - ")[1] || "November";
+  const selectedMonthObj = MONTHS_DATA.find((m) => m.value === selectedMonth);
+  const currentMonthName = selectedMonthObj
+    ? selectedMonthObj[lang].split(" - ")[1]
+    : "November";
 
   const computedList = currentCity.lahan.map((item) =>
-    computeSawahPrediction(item, selectedMonth, selectedYear, mlRunCount)
+    computeSawahPrediction(
+      item,
+      selectedMonth,
+      selectedYear,
+      mlRunCount,
+      currentCity.maxMasaTanamPerTahun,
+      lang
+    )
   );
+
+  const selectedSawah: ComputedSawahResult | null = selectedSawahId
+    ? computedList.find((item) => item.id === selectedSawahId) || null
+    : null;
+
   const totalLuas = computedList.reduce((acc, item) => acc + item.luasHa, 0).toFixed(1);
   const avgMoisture = Math.round(
     computedList.reduce((acc, item) => acc + item.kelembapanAktual, 0) / computedList.length
   );
 
-  // Cek apakah di area & waktu terpilih ada lahan yang mencapai Masa Tanam 4 (MT-4)
   const hasMasaTanam4 = computedList.some((item) => item.faseTanam === 4);
 
-  // Tampilkan tepat 4 kotak: MT-1, MT-2, MT-3, dan kotak ke-4 menyesuaikan data (MT-4 atau Abu-abu)
   const displayedLegendItems = [
-    ...BASE_LEGEND_ITEMS,
-    hasMasaTanam4 ? MT4_LEGEND_ITEM : NON_TANAM_LEGEND_ITEM,
+    ...t.baseLegend,
+    hasMasaTanam4 ? t.mt4Legend : t.nonTanamLegend,
   ];
 
   const handleRunMachineLearning = () => {
     setIsRunningML(true);
-    setSelectedSawah(null);
+    setSelectedSawahId(null);
 
     setTimeout(() => {
       setIsRunningML(false);
       setMlRunCount((prev) => prev + 1);
       const now = new Date();
       setLastRunTimestamp(
-        `SYNCED ${now.toLocaleTimeString("id-ID", {
+        `SYNCED ${now.toLocaleTimeString(lang === "en" ? "en-US" : "id-ID", {
           hour: "2-digit",
           minute: "2-digit",
           second: "2-digit",
@@ -152,37 +285,64 @@ export default function NasaHackathonDashboard() {
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#050505] text-white font-sans">
       {/* =========================================================
-          TOP HEADER BAR (GAYA MINIMALIS HITAM PEKAT)
+          TOP HEADER BAR
          ========================================================= */}
       <header className="h-16 bg-[#050505] border-b border-white/10 px-6 flex items-center justify-between shrink-0 z-30">
-        {/* Logo + Pemisah Vertikal + Nama Judul Gradasi Bergerak */}
+        {/* Logo + Divider + Animated Gradient Title */}
         <div className="flex items-center gap-3.5">
-          {/* Ikon Geometris Ungu-Pink */}
           <div className="w-7 h-7 rounded-md bg-gradient-to-br from-pink-500 via-purple-500 to-sky-500 p-[1.5px]">
             <div className="w-full h-full bg-[#050505] rounded-[5px] flex items-center justify-center">
               <Sprout className="w-4 h-4 text-pink-400" />
             </div>
           </div>
 
-          {/* Garis Pemisah Vertikal */}
           <div className="h-5 w-[1px] bg-white/20" />
 
-          {/* Judul Utama dengan Gradasi Bergerak */}
           <div className="flex items-center gap-3">
             <h1 className="text-lg sm:text-xl font-extrabold tracking-[0.14em] uppercase animate-gradient-text">
               TERRACROP
             </h1>
             <span className="hidden md:inline-block text-xs text-zinc-500 font-medium pl-2">
-              NASA Space Apps • Predictive Agri-Telemetry
+              {t.subtitle}
             </span>
           </div>
         </div>
 
-        {/* Badge Pill Status Kanan */}
+        {/* Right Controls: Language Switcher + Live Status Badge */}
         <div className="flex items-center gap-3">
+          <div
+            className="flex items-center bg-[#0d0d0f] border border-white/15 rounded-full p-0.5 text-[11px] font-mono"
+            role="group"
+            aria-label="Language Switcher"
+          >
+            <Globe className="w-3.5 h-3.5 text-pink-400 ml-2 mr-1.5" />
+            <button
+              onClick={() => setLang("en")}
+              className={`px-2.5 py-0.5 rounded-full font-bold transition-colors cursor-pointer ${
+                lang === "en"
+                  ? "bg-pink-600 text-white"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              EN
+            </button>
+            <button
+              onClick={() => setLang("id")}
+              className={`px-2.5 py-0.5 rounded-full font-bold transition-colors cursor-pointer ${
+                lang === "id"
+                  ? "bg-pink-600 text-white"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              ID
+            </button>
+          </div>
+
           <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/10 text-[11px] text-zinc-300">
             <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-ping" />
-            <span>Introducing TerraCrop {lastRunTimestamp}</span>
+            <span>
+              {t.introducing} {lastRunTimestamp}
+            </span>
           </div>
         </div>
       </header>
@@ -191,31 +351,31 @@ export default function NasaHackathonDashboard() {
           MAIN WORKSPACE
          ========================================================= */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* PANEL KIRI: HITAM PEKAT (#050505) */}
+        {/* LEFT PANEL */}
         <aside className="w-full lg:w-[445px] xl:w-[475px] bg-[#050505] border-r border-white/10 flex flex-col shrink-0 z-20 overflow-y-auto">
-          {/* KIRI ATAS: PARAMETER + TOMBOL RUN ML */}
+          {/* TOP LEFT: PARAMETERS + RUN ML BUTTON */}
           <div className="p-5 border-b border-white/10 space-y-4">
             <div className="flex items-center justify-between">
               <span className="font-serif text-sm font-bold tracking-tight text-zinc-200 flex items-center gap-1.5">
                 <SlidersHorizontal className="w-3.5 h-3.5 text-pink-400" />
-                Spatial & Temporal Control
+                {t.controlTitle}
               </span>
               <span className="text-[11px] font-medium text-pink-400">
-                {currentCity.provinsi}
+                {lang === "en" ? currentCity.provinsiEn : currentCity.provinsi}
               </span>
             </div>
 
-            {/* 3 Dropdown Sejajar */}
+            {/* 3 Dropdowns */}
             <div className="grid grid-cols-12 gap-2.5">
               <div className="col-span-5">
                 <label className="block text-[10px] font-medium uppercase tracking-wider text-zinc-400 mb-1.5">
-                  Kabupaten / Kota
+                  {t.regencyLabel}
                 </label>
                 <select
                   value={selectedCityId}
                   onChange={(e) => {
                     setSelectedCityId(e.target.value);
-                    setSelectedSawah(null);
+                    setSelectedSawahId(null);
                   }}
                   className="w-full bg-[#0d0d0f] border border-white/15 rounded-lg px-2.5 py-2 text-xs font-medium text-white focus:outline-none focus:border-pink-500 transition-colors"
                 >
@@ -229,13 +389,13 @@ export default function NasaHackathonDashboard() {
 
               <div className="col-span-3">
                 <label className="block text-[10px] font-medium uppercase tracking-wider text-zinc-400 mb-1.5">
-                  Tahun
+                  {t.yearLabel}
                 </label>
                 <select
                   value={selectedYear}
                   onChange={(e) => {
                     setSelectedYear(e.target.value);
-                    setSelectedSawah(null);
+                    setSelectedSawahId(null);
                   }}
                   className="w-full bg-[#0d0d0f] border border-white/15 rounded-lg px-2 py-2 text-xs font-mono font-medium text-white focus:outline-none focus:border-pink-500 transition-colors"
                 >
@@ -249,26 +409,26 @@ export default function NasaHackathonDashboard() {
 
               <div className="col-span-4">
                 <label className="block text-[10px] font-medium uppercase tracking-wider text-zinc-400 mb-1.5">
-                  Bulan (1–12)
+                  {t.monthLabel}
                 </label>
                 <select
                   value={selectedMonth}
                   onChange={(e) => {
                     setSelectedMonth(Number(e.target.value));
-                    setSelectedSawah(null);
+                    setSelectedSawahId(null);
                   }}
                   className="w-full bg-[#0d0d0f] border border-white/15 rounded-lg px-2 py-2 text-xs font-medium text-white focus:outline-none focus:border-pink-500 transition-colors"
                 >
-                  {MONTHS.map((m) => (
+                  {MONTHS_DATA.map((m) => (
                     <option key={m.value} value={m.value} className="bg-[#0d0d0f]">
-                      {m.label}
+                      {m[lang]}
                     </option>
                   ))}
                 </select>
               </div>
             </div>
 
-            {/* Info Bendungan Aktif */}
+            {/* Active Reservoir Info */}
             <div className="px-3.5 py-2.5 rounded-lg bg-[#0c0c0e] border border-white/10 flex items-center justify-between text-[11px]">
               <div className="flex items-center gap-2 text-zinc-300">
                 <Waves className="w-3.5 h-3.5 text-sky-400 shrink-0" />
@@ -279,7 +439,7 @@ export default function NasaHackathonDashboard() {
               </span>
             </div>
 
-            {/* Tombol Run Machine Learning dengan Gradasi Bergerak */}
+            {/* Run Machine Learning Button */}
             <button
               onClick={handleRunMachineLearning}
               disabled={isRunningML}
@@ -288,43 +448,39 @@ export default function NasaHackathonDashboard() {
               {isRunningML ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>RUNNING SPATIAL ML INFERENCE...</span>
+                  <span>{t.runningML}</span>
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  <span>Run Machine Learning Model</span>
+                  <span>{t.runML}</span>
                 </>
               )}
             </button>
           </div>
 
-          {/* KIRI BAWAH: LEGENDA & PENJELASAN ANALISIS */}
+          {/* BOTTOM LEFT: LEGEND & ANALYSIS */}
           <div className="flex-1 p-5 flex flex-col justify-between space-y-5 overflow-y-auto">
             <div className="space-y-3.5">
               <div className="flex items-center justify-between">
                 <span className="font-serif text-sm font-bold tracking-tight text-zinc-200 flex items-center gap-1.5">
                   <BarChart3 className="w-3.5 h-3.5 text-pink-400" />
-                  Legenda & Analisis Prediksi
+                  {t.legendTitle}
                 </span>
                 <span className="text-[10px] font-mono bg-white/[0.05] border border-white/10 px-2.5 py-0.5 rounded-full text-zinc-300">
                   {totalLuas} Ha • SM {avgMoisture}%
                 </span>
               </div>
 
-              {/* Kotak Ringkasan Hasil Analisis dengan Judul Serif Elegan */}
+              {/* Analysis Summary Card */}
               <div className="p-4 rounded-xl bg-[#0b0b0d] border border-white/10 space-y-2">
                 <h2 className="font-serif text-base font-bold text-white tracking-tight">
-                  Analisis {currentCity.nama} — {currentMonthName} {selectedYear}
+                  {t.analysisPrefix} {currentCity.nama} — {currentMonthName} {selectedYear}
                 </h2>
-                <p className="text-zinc-400 leading-relaxed text-[11px]">
-                  Klasifikasi poligon dihitung berdasarkan <b>jarak lahan ke bendungan</b>,{" "}
-                  <b>retensi air jenis tanah</b> (Aluvial, Grumusol, Latosol, Regosol), serta
-                  curah hujan bulanan GPM. Klik area sawah pada peta untuk melihat detail sensor.
-                </p>
+                <p className="text-zinc-400 leading-relaxed text-[11px]">{t.analysisDesc}</p>
               </div>
 
-              {/* Daftar 4 Kategori Warna Poligon (Dinamis sesuai data wilayah) */}
+              {/* 4 Dynamic Legend Cards */}
               <div className="space-y-2">
                 {displayedLegendItems.map((item) => (
                   <div
@@ -347,20 +503,18 @@ export default function NasaHackathonDashboard() {
               </div>
             </div>
 
-            {/* Watermark Brand Besar Gradasi Bergerak di Bawah Panel */}
+            {/* Bottom Brand Watermark */}
             <div className="pt-3 border-t border-white/10 text-center select-none">
               <div className="text-3xl font-extrabold tracking-[0.2em] uppercase animate-gradient-text opacity-80">
                 TERRACROP
               </div>
-              <div className="text-[10px] text-zinc-600 mt-1">
-                © 2026 TerraCrop. NASA Space Apps Challenge.
-              </div>
+              <div className="text-[10px] text-zinc-600 mt-1">{t.footerCopy}</div>
             </div>
           </div>
         </aside>
 
         {/* =========================================================
-            PANEL KANAN: PETA LEAFLET + OVERLAY TELEMETRI HITAM PEKAT
+            RIGHT PANEL: LEAFLET MAP + TELEMETRY OVERLAY
            ========================================================= */}
         <main className="flex-1 relative bg-[#050505]">
           <MapComponent
@@ -369,11 +523,12 @@ export default function NasaHackathonDashboard() {
             selectedYear={selectedYear}
             activeBasemap={activeBasemap}
             selectedSawah={selectedSawah}
-            onSelectSawah={(sawah) => setSelectedSawah(sawah)}
+            onSelectSawah={(sawah) => setSelectedSawahId(sawah ? sawah.id : null)}
             mlRunCount={mlRunCount}
+            lang={lang}
           />
 
-          {/* Basemap Switcher Hitam Pekat */}
+          {/* Basemap Switcher */}
           <div className="absolute bottom-6 left-4 z-[1000]">
             <div className="relative">
               <button
@@ -412,21 +567,21 @@ export default function NasaHackathonDashboard() {
             </div>
           </div>
 
-          {/* FLOATING TELEMETRY CARD SAWAH TERPILIH (HITAM PEKAT) */}
+          {/* FLOATING TELEMETRY CARD */}
           {selectedSawah ? (
             <div className="absolute top-4 right-4 z-[1000] w-80 sm:w-[400px] bg-[#070709]/95 backdrop-blur-md border border-white/15 rounded-xl shadow-2xl overflow-hidden">
               <div className="px-4 py-3.5 bg-[#0d0d10] border-b border-white/10 flex items-start justify-between gap-2">
                 <div>
                   <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-pink-400">
                     <MapPin className="w-3 h-3" />
-                    <span>Telemetry & Hidrologi Lahan</span>
+                    <span>{t.telemetryHeader}</span>
                   </div>
                   <h3 className="font-serif text-base font-bold text-white mt-0.5">
                     {selectedSawah.namaBlok}
                   </h3>
                 </div>
                 <button
-                  onClick={() => setSelectedSawah(null)}
+                  onClick={() => setSelectedSawahId(null)}
                   className="p-1 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white cursor-pointer"
                 >
                   <X className="w-4 h-4" />
@@ -434,9 +589,9 @@ export default function NasaHackathonDashboard() {
               </div>
 
               <div className="p-4 space-y-3 text-xs max-h-[calc(100vh-120px)] overflow-y-auto">
-                {/* Status Fase Tanam */}
+                {/* Planting Phase Status */}
                 <div className="flex items-center justify-between bg-[#0e0e11] px-3 py-2.5 rounded-lg border border-white/10">
-                  <span className="text-zinc-400">Kategori Prediksi:</span>
+                  <span className="text-zinc-400">{t.predCategory}</span>
                   <span
                     className={`px-2.5 py-0.5 rounded font-bold text-[11px] ${
                       selectedSawah.faseTanam === 1
@@ -451,46 +606,47 @@ export default function NasaHackathonDashboard() {
                     }`}
                   >
                     {selectedSawah.faseTanam === 0
-                      ? "Non-Tanam (Abu-abu)"
-                      : `Masa Tanam ${selectedSawah.faseTanam}`}
+                      ? t.nonPlantingBadge
+                      : t.plantingSeasonBadge(selectedSawah.faseTanam)}
                   </span>
                 </div>
 
-                {/* Parameter Jarak Bendungan & Karakteristik Tanah */}
+                {/* Dam Distance & Soil Profile */}
                 <div className="grid grid-cols-2 gap-2">
                   <div className="p-3 rounded-lg bg-[#0d0d10] border border-white/10">
                     <div className="flex items-center gap-1.5 text-sky-400 text-[10px] uppercase font-medium">
                       <Waves className="w-3.5 h-3.5" />
-                      <span>Jarak ke Dam</span>
+                      <span>{t.distToDam}</span>
                     </div>
                     <div className="text-sm font-mono font-bold text-white mt-1">
                       {selectedSawah.jarakBendunganKm} km
                     </div>
                     <div className="text-[10px] text-zinc-400 mt-0.5">
-                      Irigasi {selectedSawah.saluranIrigasi}
+                      {selectedSawah.saluranIrigasiDisplay}
                     </div>
                   </div>
 
                   <div className="p-3 rounded-lg bg-[#0d0d10] border border-white/10">
                     <div className="flex items-center gap-1.5 text-amber-400 text-[10px] uppercase font-medium">
                       <Mountain className="w-3.5 h-3.5" />
-                      <span>Karakter Tanah</span>
+                      <span>{t.soilChar}</span>
                     </div>
                     <div className="text-sm font-bold text-white mt-1">
-                      {selectedSawah.jenisTanah}
+                      {selectedSawah.jenisTanahDisplay}
                     </div>
                     <div className="text-[10px] text-zinc-400 mt-0.5 font-mono">
-                      pH {selectedSawah.phTanah} • {selectedSawah.elevasiMdpl} mdpl
+                      pH {selectedSawah.phTanah} • {selectedSawah.elevasiMdpl}{" "}
+                      {lang === "en" ? "masl" : "mdpl"}
                     </div>
                   </div>
                 </div>
 
-                {/* Grid Parameter Satelit NASA */}
+                {/* NASA Satellite Parameters Grid */}
                 <div className="grid grid-cols-2 gap-2">
                   <div className="p-2.5 rounded-lg bg-[#0c0c0e] border border-white/10">
                     <div className="flex items-center gap-1.5 text-zinc-400 text-[10px] uppercase">
                       <Droplets className="w-3.5 h-3.5 text-sky-400" />
-                      <span>Kelembapan Tanah</span>
+                      <span>{t.soilMoisture}</span>
                     </div>
                     <div className="text-base font-mono font-bold text-white mt-1">
                       {selectedSawah.kelembapanAktual}%
@@ -500,7 +656,7 @@ export default function NasaHackathonDashboard() {
                   <div className="p-2.5 rounded-lg bg-[#0c0c0e] border border-white/10">
                     <div className="flex items-center gap-1.5 text-zinc-400 text-[10px] uppercase">
                       <CloudRain className="w-3.5 h-3.5 text-indigo-400" />
-                      <span>Curah Hujan</span>
+                      <span>{t.rainfall}</span>
                     </div>
                     <div className="text-base font-mono font-bold text-white mt-1">
                       {selectedSawah.curahHujanAktual}{" "}
@@ -511,7 +667,7 @@ export default function NasaHackathonDashboard() {
                   <div className="p-2.5 rounded-lg bg-[#0c0c0e] border border-white/10">
                     <div className="flex items-center gap-1.5 text-zinc-400 text-[10px] uppercase">
                       <Sprout className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Indeks NDVI</span>
+                      <span>{t.ndviIndex}</span>
                     </div>
                     <div className="text-base font-mono font-bold text-white mt-1">
                       {selectedSawah.ndviAktual}
@@ -521,7 +677,7 @@ export default function NasaHackathonDashboard() {
                   <div className="p-2.5 rounded-lg bg-[#0c0c0e] border border-white/10">
                     <div className="flex items-center gap-1.5 text-zinc-400 text-[10px] uppercase">
                       <Thermometer className="w-3.5 h-3.5 text-pink-400" />
-                      <span>Suhu Permukaan</span>
+                      <span>{t.surfaceTemp}</span>
                     </div>
                     <div className="text-base font-mono font-bold text-white mt-1">
                       {selectedSawah.suhuAktual}°C
@@ -529,10 +685,10 @@ export default function NasaHackathonDashboard() {
                   </div>
                 </div>
 
-                {/* Rekomendasi Komoditas & Alasan Agronomi */}
+                {/* Commodity Recommendation */}
                 <div className="p-3.5 rounded-lg bg-gradient-to-br from-pink-500/10 via-purple-500/10 to-transparent border border-pink-500/30 space-y-1.5">
                   <div className="text-[10px] font-mono uppercase tracking-wider text-pink-400">
-                    Rekomendasi Komoditas Optimal
+                    {t.optimalCropTitle}
                   </div>
                   <div className="text-sm font-bold text-white">
                     {selectedSawah.rekomendasiTanaman}
@@ -541,8 +697,12 @@ export default function NasaHackathonDashboard() {
                     {selectedSawah.alasanAgronomi}
                   </p>
                   <div className="flex items-center justify-between pt-2 border-t border-white/10 text-[10px] text-zinc-400 font-mono">
-                    <span>Luas: {selectedSawah.luasHa} Ha</span>
-                    <span>Kesuburan: {selectedSawah.indeksKesuburan}/100</span>
+                    <span>
+                      {t.areaLabel}: {selectedSawah.luasHa} Ha
+                    </span>
+                    <span>
+                      {t.fertilityLabel}: {selectedSawah.indeksKesuburan}/100
+                    </span>
                     <span>Conf: {selectedSawah.confidence}%</span>
                   </div>
                 </div>
@@ -550,8 +710,7 @@ export default function NasaHackathonDashboard() {
             </div>
           ) : (
             <div className="absolute top-4 right-4 z-[1000] bg-[#050505]/90 backdrop-blur-md border border-white/15 px-4 py-2.5 rounded-lg shadow-2xl text-xs text-zinc-300 max-w-xs pointer-events-none">
-              Klik pada <span className="text-white font-semibold">poligon sawah</span> untuk
-              melihat jarak ke bendungan, jenis tanah, kelembapan, & rekomendasi tanam.
+              {t.mapPrompt}
             </div>
           )}
         </main>

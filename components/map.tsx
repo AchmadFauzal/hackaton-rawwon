@@ -29,32 +29,64 @@ const damIcon = L.divIcon({
 
 export const FASE_COLORS: Record<
   number,
-  { fill: string; border: string; label: string }
+  { fill: string; border: string; labelEn: string; labelId: string }
 > = {
   1: {
     fill: "#10b981", // Hijau Emerald
     border: "#047857",
-    label: "Masa Tanam 1 (MT-1)",
+    labelEn: "Planting Season 1 (PS-1)",
+    labelId: "Masa Tanam 1 (MT-1)",
   },
   2: {
     fill: "#0ea5e9", // Biru Langit
     border: "#0369a1",
-    label: "Masa Tanam 2 (MT-2)",
+    labelEn: "Planting Season 2 (PS-2)",
+    labelId: "Masa Tanam 2 (MT-2)",
   },
   3: {
     fill: "#f59e0b", // Kuning Amber
     border: "#b45309",
-    label: "Masa Tanam 3 (MT-3)",
+    labelEn: "Planting Season 3 (PS-3)",
+    labelId: "Masa Tanam 3 (MT-3)",
   },
   4: {
     fill: "#8b5cf6", // Ungu Violet
     border: "#5b21b6",
-    label: "Masa Tanam 4 (MT-4)",
+    labelEn: "Planting Season 4 (PS-4)",
+    labelId: "Masa Tanam 4 (MT-4)",
   },
   0: {
     fill: "#64748b", // Abu-abu (Tidak Masa Tanam / Mentok MT-3)
     border: "#334155",
-    label: "Tidak Masa Tanam (Bera)",
+    labelEn: "Non-Planting / Fallow (Gray)",
+    labelId: "Tidak Masa Tanam (Bera)",
+  },
+};
+
+const POPUP_TEXT = {
+  en: {
+    damSource: "Primary Irrigation Source",
+    capacity: "Capacity",
+    millionUnit: "Million m³",
+    dischargeStatus: "Discharge Status",
+    statusMap: { Normal: "Normal", Siaga: "Alert", Surut: "Low" },
+    distToDam: "Distance to Dam:",
+    soilTypePh: "Soil & pH:",
+    soilMoisture: "Soil Moisture:",
+    rainfall: "Precipitation:",
+    cropRec: "Crop Recommendation:",
+  },
+  id: {
+    damSource: "Sumber Irigasi Utama",
+    capacity: "Kapasitas",
+    millionUnit: "Juta m³",
+    dischargeStatus: "Status Debit",
+    statusMap: { Normal: "Normal", Siaga: "Siaga", Surut: "Surut" },
+    distToDam: "Jarak ke Dam:",
+    soilTypePh: "Jenis & pH Tanah:",
+    soilMoisture: "Kelembapan Tanah:",
+    rainfall: "Curah Hujan:",
+    cropRec: "Rekomendasi Tanaman:",
   },
 };
 
@@ -66,6 +98,7 @@ interface MapProps {
   selectedSawah: ComputedSawahResult | null;
   onSelectSawah: (sawah: ComputedSawahResult) => void;
   mlRunCount: number;
+  lang?: "en" | "id";
 }
 
 // Menggeser kamera peta secara halus saat Kabupaten/Kota diganti
@@ -94,7 +127,10 @@ export default function Map({
   selectedSawah,
   onSelectSawah,
   mlRunCount,
+  lang = "en",
 }: MapProps) {
+  const t = POPUP_TEXT[lang];
+
   return (
     <MapContainer
       center={selectedCity.center}
@@ -132,18 +168,23 @@ export default function Map({
         <Popup>
           <div className="p-1 font-sans text-xs min-w-[190px]">
             <div className="text-[10px] font-bold uppercase text-sky-600">
-              Sumber Irigasi Utama
+              {t.damSource}
             </div>
             <div className="font-bold text-slate-900 text-sm mt-0.5">
               {selectedCity.bendungan.nama}
             </div>
             <div className="mt-1.5 pt-1.5 border-t border-slate-200 space-y-1 text-slate-600">
               <div>
-                Kapasitas: <b>{selectedCity.bendungan.kapasitasJutaM3} Juta m³</b>
+                {t.capacity}:{" "}
+                <b>
+                  {selectedCity.bendungan.kapasitasJutaM3} {t.millionUnit}
+                </b>
               </div>
               <div>
-                Status Debit:{" "}
-                <b className="text-emerald-600">{selectedCity.bendungan.statusDebit}</b>
+                {t.dischargeStatus}:{" "}
+                <b className="text-emerald-600">
+                  {t.statusMap[selectedCity.bendungan.statusDebit]}
+                </b>
               </div>
             </div>
           </div>
@@ -172,14 +213,15 @@ export default function Map({
           selectedMonth,
           selectedYear,
           mlRunCount,
-          selectedCity.maxMasaTanamPerTahun
+          selectedCity.maxMasaTanamPerTahun,
+          lang
         );
         const colorStyle = FASE_COLORS[computed.faseTanam];
         const isSelected = selectedSawah?.id === computed.id;
 
         return (
           <Polygon
-            key={`${computed.id}-${selectedMonth}-${selectedYear}-${mlRunCount}`}
+            key={`${computed.id}-${selectedMonth}-${selectedYear}-${mlRunCount}-${lang}`}
             positions={computed.coordinates}
             pathOptions={{
               fillColor: colorStyle.fill,
@@ -194,7 +236,7 @@ export default function Map({
             }}
           >
             <Popup>
-              <div className="p-1 min-w-[230px] font-sans">
+              <div className="p-1 min-w-[235px] font-sans">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   {selectedCity.nama} • {selectedYear}
                 </div>
@@ -205,36 +247,36 @@ export default function Map({
                   className="mt-1.5 inline-block px-2 py-0.5 rounded text-[11px] font-bold text-white"
                   style={{ backgroundColor: colorStyle.fill }}
                 >
-                  {colorStyle.label}
+                  {lang === "en" ? colorStyle.labelEn : colorStyle.labelId}
                 </div>
                 <div className="mt-2 pt-2 border-t border-slate-200 text-xs space-y-1 text-slate-700">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Jarak ke Dam:</span>
-                    <span className="font-mono font-bold text-sky-700">
-                      {computed.jarakBendunganKm} km ({computed.saluranIrigasi})
+                  <div className="flex justify-between gap-2">
+                    <span className="text-slate-500">{t.distToDam}</span>
+                    <span className="font-mono font-bold text-sky-700 text-right">
+                      {computed.jarakBendunganKm} km ({computed.saluranIrigasiDisplay})
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-slate-500">{t.soilTypePh}</span>
+                    <span className="font-semibold text-right">
+                      {computed.jenisTanahDisplay} (pH {computed.phTanah})
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Jenis & pH Tanah:</span>
-                    <span className="font-semibold">
-                      {computed.jenisTanah} (pH {computed.phTanah})
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Kelembapan Tanah:</span>
+                    <span className="text-slate-500">{t.soilMoisture}</span>
                     <span className="font-mono font-bold">
                       {computed.kelembapanAktual}%
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Curah Hujan:</span>
+                    <span className="text-slate-500">{t.rainfall}</span>
                     <span className="font-mono font-bold">
                       {computed.curahHujanAktual} mm
                     </span>
                   </div>
                   <div className="pt-1 border-t border-slate-100">
                     <span className="text-slate-500 block text-[10px]">
-                      Rekomendasi Tanaman:
+                      {t.cropRec}
                     </span>
                     <span className="font-bold text-emerald-700">
                       {computed.rekomendasiTanaman}

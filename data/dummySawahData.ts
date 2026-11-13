@@ -28,7 +28,8 @@ export interface CityData {
   id: string;
   nama: string;
   provinsi: string;
-  maxMasaTanamPerTahun: 3 | 4; // Batas maksimal MT di wilayah ini dalam 1 tahun
+  provinsiEn: string;
+  maxMasaTanamPerTahun: 3 | 4;
   center: [number, number];
   zoom: number;
   bendungan: BendunganInfo;
@@ -40,7 +41,8 @@ export const FULL_INDONESIA_SAWAH_DATA: CityData[] = [
     id: "karawang",
     nama: "Kab. Karawang",
     provinsi: "Jawa Barat",
-    maxMasaTanamPerTahun: 4, // Mendukung penuh hingga MT-4
+    provinsiEn: "West Java",
+    maxMasaTanamPerTahun: 4,
     center: [-6.292, 107.338],
     zoom: 13,
     bendungan: {
@@ -166,7 +168,8 @@ export const FULL_INDONESIA_SAWAH_DATA: CityData[] = [
     id: "ngawi",
     nama: "Kab. Ngawi",
     provinsi: "Jawa Timur",
-    maxMasaTanamPerTahun: 4, // Mendukung hingga MT-4
+    provinsiEn: "East Java",
+    maxMasaTanamPerTahun: 4,
     center: [-7.425, 111.435],
     zoom: 13,
     bendungan: {
@@ -266,7 +269,8 @@ export const FULL_INDONESIA_SAWAH_DATA: CityData[] = [
     id: "indramayu",
     nama: "Kab. Indramayu",
     provinsi: "Jawa Barat",
-    maxMasaTanamPerTahun: 3, // Mentok di MT-3 (MT-4 otomatis jadi abu-abu)
+    provinsiEn: "West Java",
+    maxMasaTanamPerTahun: 3,
     center: [-6.365, 108.285],
     zoom: 13,
     bendungan: {
@@ -369,7 +373,8 @@ export const FULL_INDONESIA_SAWAH_DATA: CityData[] = [
     id: "demak",
     nama: "Kab. Demak",
     provinsi: "Jawa Tengah",
-    maxMasaTanamPerTahun: 3, // Mentok di MT-3
+    provinsiEn: "Central Java",
+    maxMasaTanamPerTahun: 3,
     center: [-6.915, 110.645],
     zoom: 13,
     bendungan: {
@@ -448,7 +453,8 @@ export const FULL_INDONESIA_SAWAH_DATA: CityData[] = [
     id: "sidrap",
     nama: "Kab. Sidenreng Rappang",
     provinsi: "Sulawesi Selatan",
-    maxMasaTanamPerTahun: 4, // Mendukung hingga MT-4
+    provinsiEn: "South Sulawesi",
+    maxMasaTanamPerTahun: 4,
     center: [-3.925, 119.795],
     zoom: 13,
     bendungan: {
@@ -527,6 +533,7 @@ export const FULL_INDONESIA_SAWAH_DATA: CityData[] = [
     id: "deliserdang",
     nama: "Kab. Deli Serdang",
     provinsi: "Sumatera Utara",
+    provinsiEn: "North Sumatra",
     maxMasaTanamPerTahun: 4,
     center: [3.555, 98.865],
     zoom: 13,
@@ -606,7 +613,8 @@ export const FULL_INDONESIA_SAWAH_DATA: CityData[] = [
     id: "lomboktengah",
     nama: "Kab. Lombok Tengah",
     provinsi: "Nusa Tenggara Barat",
-    maxMasaTanamPerTahun: 3, // Mentok di MT-3
+    provinsiEn: "West Nusa Tenggara",
+    maxMasaTanamPerTahun: 3,
     center: [-8.715, 116.275],
     zoom: 13,
     bendungan: {
@@ -689,17 +697,36 @@ export interface ComputedSawahResult extends SawahFeature {
   curahHujanAktual: number;
   ndviAktual: number;
   suhuAktual: number;
+  jenisTanahDisplay: string;
+  saluranIrigasiDisplay: string;
   rekomendasiTanaman: string;
   alasanAgronomi: string;
   indeksKesuburan: number;
 }
+
+const SOIL_TRANSLATIONS: Record<SawahFeature["jenisTanah"], { en: string; id: string }> = {
+  Aluvial: { en: "Alluvial", id: "Aluvial" },
+  Latosol: { en: "Latosol", id: "Latosol" },
+  Grumusol: { en: "Grumusol (Vertisol)", id: "Grumusol" },
+  Regosol: { en: "Regosol", id: "Regosol" },
+};
+
+const IRRIGATION_TRANSLATIONS: Record<
+  SawahFeature["saluranIrigasi"],
+  { en: string; id: string }
+> = {
+  Primer: { en: "Primary Canal", id: "Primer" },
+  Sekunder: { en: "Secondary Canal", id: "Sekunder" },
+  "Tadah Hujan": { en: "Rainfed", id: "Tadah Hujan" },
+};
 
 export function computeSawahPrediction(
   sawah: SawahFeature,
   month: number,
   year: string,
   mlRunCount: number,
-  maxMasaTanamPerTahun: 3 | 4 = 4
+  maxMasaTanamPerTahun: 3 | 4 = 4,
+  lang: "en" | "id" = "en"
 ): ComputedSawahResult {
   const isWetSeason = month >= 11 || month <= 4;
   const seasonalRainFactor = isWetSeason ? 1.15 : 0.65;
@@ -741,7 +768,6 @@ export function computeSawahPrediction(
     Math.min(0.92, Math.max(0.15, (kelembapanAktual / 100) * 0.95)).toFixed(2)
   );
 
-  // Tentukan kandidat fase tanam
   let kandidatFase: 1 | 2 | 3 | 4 | 0 = 0;
 
   if (kelembapanAktual >= 72 && sawah.jarakBendunganKm <= 12) {
@@ -756,38 +782,67 @@ export function computeSawahPrediction(
     kandidatFase = 0;
   }
 
-  // ATURAN DATABASE: Jika wilayah hanya mendukung maksimal MT-3 dalam setahun,
-  // maka kandidat MT-4 otomatis mentok menjadi 0 (Abu-abu / Non-Tanam).
   const faseTanam: 1 | 2 | 3 | 4 | 0 =
     kandidatFase > maxMasaTanamPerTahun ? 0 : kandidatFase;
+
+  const jenisTanahDisplay = SOIL_TRANSLATIONS[sawah.jenisTanah][lang];
+  const saluranIrigasiDisplay = IRRIGATION_TRANSLATIONS[sawah.saluranIrigasi][lang];
 
   let rekomendasiTanaman = "";
   let alasanAgronomi = "";
 
-  if (faseTanam === 1) {
-    rekomendasiTanaman =
-      sawah.jenisTanah === "Aluvial"
-        ? "Padi Ciherang / IR64"
-        : "Padi Mekongga / Situ Bagendit";
-    alasanAgronomi = `Irigasi primer (${sawah.jarakBendunganKm} km dari dam) & kelembapan ${kelembapanAktual}% optimal untuk padi utama.`;
-  } else if (faseTanam === 2) {
-    rekomendasiTanaman = "Padi Inpari 32 / Inpari 42";
-    alasanAgronomi = `Kelembapan ${kelembapanAktual}% pada tanah ${sawah.jenisTanah} sesuai untuk padi varietas hemat air.`;
-  } else if (faseTanam === 3) {
-    rekomendasiTanaman =
-      sawah.jenisTanah === "Grumusol"
-        ? "Kedelai Anjasmoro / Kacang Tanah"
-        : "Jagung Hibrida Bisi-18";
-    alasanAgronomi = `Suplai air sedang (${curahHujanAktual} mm). Rotasi palawija menjaga keseimbangan hara.`;
-  } else if (faseTanam === 4) {
-    rekomendasiTanaman = "Kacang Hijau / Bawang Merah / Hortikultura";
-    alasanAgronomi = `Wilayah mendukung indeks tanam 4x/tahun. Komoditas umur pendek (<65 hari) direkomendasikan.`;
+  if (lang === "en") {
+    if (faseTanam === 1) {
+      rekomendasiTanaman =
+        sawah.jenisTanah === "Aluvial"
+          ? "Ciherang / IR64 Irrigated Rice"
+          : "Mekongga / Situ Bagendit Rice";
+      alasanAgronomi = `Primary irrigation (${sawah.jarakBendunganKm} km from dam) & ${kelembapanAktual}% soil moisture provide optimal conditions for staple paddy.`;
+    } else if (faseTanam === 2) {
+      rekomendasiTanaman = "Inpari 32 / Inpari 42 Water-Saving Rice";
+      alasanAgronomi = `${kelembapanAktual}% soil moisture on ${jenisTanahDisplay} soil suits high-yield, water-efficient paddy cultivars.`;
+    } else if (faseTanam === 3) {
+      rekomendasiTanaman =
+        sawah.jenisTanah === "Grumusol"
+          ? "Anjasmoro Soybean / Groundnut"
+          : "Bisi-18 Hybrid Maize";
+      alasanAgronomi = `Moderate water supply (${curahHujanAktual} mm precipitation). Secondary crop rotation restores soil nitrogen balance.`;
+    } else if (faseTanam === 4) {
+      rekomendasiTanaman = "Mung Bean / Shallot / Short-Cycle Horticulture";
+      alasanAgronomi = `Region supports 4x annual cropping intensity. Short-cycle (<65 days) horticulture is recommended.`;
+    } else {
+      rekomendasiTanaman = "Non-Planting Season (Fallow / Soil Recovery)";
+      alasanAgronomi =
+        kandidatFase === 4 && maxMasaTanamPerTahun === 3
+          ? `Regional hydrological capacity is capped at 3 planting seasons/year. Parcel enters fallow recovery phase (gray).`
+          : `Dam distance is ${sawah.jarakBendunganKm} km with ${kelembapanAktual}% moisture. Fallow resting phase recommended.`;
+    }
   } else {
-    rekomendasiTanaman = "Tidak Masa Tanam (Bera / Pemulihan Tanah)";
-    alasanAgronomi =
-      kandidatFase === 4 && maxMasaTanamPerTahun === 3
-        ? `Kapasitas siklus wilayah ini maksimal MT-3 per tahun. Lahan masuk fase istirahat (abu-abu).`
-        : `Jarak dam ${sawah.jarakBendunganKm} km & kelembapan ${kelembapanAktual}%. Lahan diistirahatkan.`;
+    if (faseTanam === 1) {
+      rekomendasiTanaman =
+        sawah.jenisTanah === "Aluvial"
+          ? "Padi Ciherang / IR64"
+          : "Padi Mekongga / Situ Bagendit";
+      alasanAgronomi = `Irigasi primer (${sawah.jarakBendunganKm} km dari dam) & kelembapan ${kelembapanAktual}% optimal untuk padi utama.`;
+    } else if (faseTanam === 2) {
+      rekomendasiTanaman = "Padi Inpari 32 / Inpari 42";
+      alasanAgronomi = `Kelembapan ${kelembapanAktual}% pada tanah ${jenisTanahDisplay} sesuai untuk padi varietas hemat air.`;
+    } else if (faseTanam === 3) {
+      rekomendasiTanaman =
+        sawah.jenisTanah === "Grumusol"
+          ? "Kedelai Anjasmoro / Kacang Tanah"
+          : "Jagung Hibrida Bisi-18";
+      alasanAgronomi = `Suplai air sedang (${curahHujanAktual} mm). Rotasi palawija menjaga keseimbangan hara.`;
+    } else if (faseTanam === 4) {
+      rekomendasiTanaman = "Kacang Hijau / Bawang Merah / Hortikultura";
+      alasanAgronomi = `Wilayah mendukung indeks tanam 4x/tahun. Komoditas umur pendek (<65 hari) direkomendasikan.`;
+    } else {
+      rekomendasiTanaman = "Tidak Masa Tanam (Bera / Pemulihan Tanah)";
+      alasanAgronomi =
+        kandidatFase === 4 && maxMasaTanamPerTahun === 3
+          ? `Kapasitas siklus wilayah ini maksimal MT-3 per tahun. Lahan masuk fase istirahat (abu-abu).`
+          : `Jarak dam ${sawah.jarakBendunganKm} km & kelembapan ${kelembapanAktual}%. Lahan diistirahatkan.`;
+    }
   }
 
   const indeksKesuburan = Math.min(
@@ -805,6 +860,8 @@ export function computeSawahPrediction(
     curahHujanAktual,
     ndviAktual,
     suhuAktual,
+    jenisTanahDisplay,
+    saluranIrigasiDisplay,
     rekomendasiTanaman,
     alasanAgronomi,
     indeksKesuburan,
