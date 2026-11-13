@@ -1,7 +1,7 @@
 // src/app/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import {
   Loader2,
@@ -213,6 +213,10 @@ const TRANSLATIONS = {
 };
 
 export default function NasaHackathonDashboard() {
+  // Buffer Opening Splash State
+  const [showOpening, setShowOpening] = useState<boolean>(true);
+  const [isFadingOut, setIsFadingOut] = useState<boolean>(false);
+
   const [lang, setLang] = useState<Lang>("en");
   const [selectedCityId, setSelectedCityId] = useState<string>("karawang");
   const [selectedYear, setSelectedYear] = useState<string>("2026");
@@ -225,6 +229,29 @@ export default function NasaHackathonDashboard() {
   const [selectedSawahId, setSelectedSawahId] = useState<string | null>(null);
   const [activeBasemap, setActiveBasemap] = useState<"osm" | "topo" | "satellite">("satellite");
   const [showLayerMenu, setShowLayerMenu] = useState<boolean>(false);
+
+  useEffect(() => {
+    // 0s - 1.1s: Zoom dari kecil ke besar
+    // 1.1s - 3.0s: Efek gradasi mengkilau melintas
+    // 3.0s - 3.7s: Fade out halus masuk ke dashboard
+    const fadeTimer = setTimeout(() => {
+      setIsFadingOut(true);
+    }, 3000);
+
+    const removeTimer = setTimeout(() => {
+      setShowOpening(false);
+    }, 3700);
+
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(removeTimer);
+    };
+  }, []);
+
+  const handleSkipOpening = () => {
+    setIsFadingOut(true);
+    setTimeout(() => setShowOpening(false), 450);
+  };
 
   const t = TRANSLATIONS[lang];
 
@@ -283,7 +310,85 @@ export default function NasaHackathonDashboard() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#050505] text-white font-sans">
+    <div className="relative flex flex-col h-screen w-screen overflow-hidden bg-[#050505] text-white font-sans">
+      {/* =========================================================
+          BUFFER OPENING SPLASH SCREEN (ZOOM IN -> GRADIENT SHIMMER)
+         ========================================================= */}
+      {showOpening && (
+        <div
+          onClick={handleSkipOpening}
+          className={`fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center select-none cursor-pointer transition-opacity duration-700 ${
+            isFadingOut ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
+        >
+          <style>{`
+            @keyframes scaleUpTitle {
+              0% {
+                opacity: 0;
+                transform: scale(0.32);
+                letter-spacing: 0.25em;
+              }
+              100% {
+                opacity: 1;
+                transform: scale(1);
+                letter-spacing: 0.04em;
+              }
+            }
+            @keyframes strokeShimmer {
+              0% {
+                background-position: 180% 50%;
+              }
+              100% {
+                background-position: -180% 50%;
+              }
+            }
+            @keyframes fadeInSub {
+              0%, 60% {
+                opacity: 0;
+                transform: translateY(8px);
+              }
+              100% {
+                opacity: 1;
+                transform: translateY(0);
+              }
+            }
+            .terracorp-opening-title {
+              font-weight: 800;
+              color: #050505;
+              background: linear-gradient(
+                110deg,
+                #3f3f46 25%,
+                #ec4899 43%,
+                #a855f7 50%,
+                #38bdf8 57%,
+                #3f3f46 75%
+              );
+              background-size: 240% auto;
+              background-position: 180% 50%;
+              -webkit-background-clip: text;
+              background-clip: text;
+              -webkit-text-stroke: 3.5px transparent;
+              animation:
+                scaleUpTitle 1.1s cubic-bezier(0.16, 1, 0.3, 1) forwards,
+                strokeShimmer 2.1s linear 1.1s infinite;
+            }
+            .terracorp-opening-sub {
+              animation: fadeInSub 1.4s ease-out forwards;
+            }
+          `}</style>
+
+          <div className="px-6 text-center">
+            <div className="terracorp-opening-title text-5xl sm:text-7xl md:text-8xl lg:text-9xl leading-none">
+              TerraCorp
+            </div>
+            <div className="terracorp-opening-sub mt-5 flex items-center justify-center gap-2 text-[11px] font-mono uppercase tracking-[0.28em] text-zinc-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse" />
+              <span>NASA Space Apps • Initializing Telemetry</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* =========================================================
           TOP HEADER BAR
          ========================================================= */}

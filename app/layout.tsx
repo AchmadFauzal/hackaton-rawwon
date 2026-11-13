@@ -16,7 +16,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TERRACROP EO — Crop Cycle & Land Intelligence",
+  title: "TERRACROP — Crop Cycle & Land Intelligence",
   description: "Predictive Paddy Field & Multi-Cropping Intelligence System",
 };
 
