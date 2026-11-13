@@ -1,17 +1,35 @@
+/* src/app/globals.css */
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
-html,
-body {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  background-color: #050505;
-  color: #ffffff;
+@theme inline {
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
 }
 
-/* Animasi Gradasi Teks Bergerak ala GalekTech */
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background-color: #050505;
+  color: #ffffff;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Kunci tinggi & overflow hanya di layar Desktop (lg ke atas) */
+@media (min-width: 1024px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+}
+
+/* Animasi Gradasi Teks Bergerak */
 @keyframes gradient-flow {
   0% {
     background-position: 0% 50%;
@@ -53,18 +71,43 @@ body {
   animation: gradient-flow 5s ease infinite;
 }
 
+/* Penyesuaian Leaflet Dark Theme agar selaras dengan dashboard */
+.leaflet-container {
+  background-color: #050505 !important;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(5, 5, 5, 0.8) !important;
+  color: #a1a1aa !important;
+  font-size: 10px !important;
+  backdrop-filter: blur(4px);
+}
+
+.leaflet-control-attribution a {
+  color: #38bdf8 !important;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 0.75rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6) !important;
+}
+
 /* Custom Dark Scrollbar */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
 }
+
 ::-webkit-scrollbar-track {
   background: #050505;
 }
+
 ::-webkit-scrollbar-thumb {
   background: #27272a;
   border-radius: 9999px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: #3f3f46;
 }

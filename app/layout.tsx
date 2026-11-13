@@ -1,12 +1,18 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const jakarta = Plus_Jakarta_Sans({
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
-  weight: ["400", "500", "600", "700", "800"],
+  weight: ["400", "500", "600", "700"],
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-display",
+  weight: ["500", "600", "700"],
 });
 
 const jetbrains = JetBrains_Mono({
@@ -16,7 +22,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TERRACROP — Crop Cycle & Land Intelligence",
+  title: "TERRACROP — NASA Space Apps Crop & Land Intelligence",
   description: "Predictive Paddy Field & Multi-Cropping Intelligence System",
 };
 
@@ -26,7 +32,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="id" className={`${jakarta.variable} ${jetbrains.variable} dark`}>
+    <html
+      lang="en"
+      className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrains.variable} dark`}
+    >
       <body className="bg-[#050505] text-white font-sans antialiased selection:bg-pink-500 selection:text-white">
         {children}
       </body>
