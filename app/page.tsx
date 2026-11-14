@@ -394,6 +394,7 @@ export default function NasaHackathonDashboard() {
     return (
       <PotentialFieldComponent
         onBack={() => setActiveView("cycle")}
+        onLangChange={setLang}
         kabupatenList={kabupatenList}
         batasKabGeoJson={batasKabGeoJson}
         konturGeoJson={konturGeoJson}

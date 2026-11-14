@@ -12,6 +12,7 @@ import {
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
+import { Globe } from "lucide-react";
 import {
   buildPotentialNewFields,
   PotentialNewFieldPrediction,
@@ -56,6 +57,7 @@ function getPropFlexible(
 
 interface PotentialFieldViewProps {
   onBack: () => void;
+  onLangChange: (lang: "en" | "id") => void;
   kabupatenList: KabupatenOption[];
   batasKabGeoJson: any;
   konturGeoJson: any;
@@ -107,6 +109,7 @@ function CameraBoundsUpdater({
 
 export default function PotentialFieldView({
   onBack,
+  onLangChange,
   kabupatenList,
   batasKabGeoJson,
   konturGeoJson,
@@ -300,9 +303,36 @@ export default function PotentialFieldView({
               POTENTIAL FIELD INTELLIGENCE
             </h1>
             <p className="text-[11px] font-mono text-zinc-400">
-              Multi-Layer Spatial Overlay • Batas Kab + Kontur SRTM + LC Pixel + Sawah + SIGI
+              {lang === "en"
+                ? "Multi-Layer Spatial Overlay • District Boundaries + SRTM Contours + LC Pixel + Paddy + Water Infrastructure"
+                : "Multi-Layer Spatial Overlay • Batas Kab + Kontur SRTM + LC Pixel + Sawah + Infrastruktur Air"}
             </p>
           </div>
+        </div>
+        <div
+          className="flex items-center bg-[#0d0d0f] border border-white/15 rounded-full p-0.5 text-[11px] font-mono"
+          role="group"
+          aria-label="Language Switcher"
+        >
+          <Globe className="w-3.5 h-3.5 text-pink-400 ml-2 mr-1.5" />
+          <button
+            type="button"
+            onClick={() => onLangChange("en")}
+            className={`px-2.5 py-0.5 rounded-full font-bold transition-colors cursor-pointer ${
+              lang === "en" ? "bg-pink-600 text-white" : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            EN
+          </button>
+          <button
+            type="button"
+            onClick={() => onLangChange("id")}
+            className={`px-2.5 py-0.5 rounded-full font-bold transition-colors cursor-pointer ${
+              lang === "id" ? "bg-pink-600 text-white" : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            ID
+          </button>
         </div>
       </header>
 
@@ -351,7 +381,7 @@ export default function PotentialFieldView({
             <div className="grid grid-cols-2 gap-2.5">
               <div className="bg-black/40 border border-white/10 rounded-xl p-3">
                 <div className="text-[10px] font-mono text-zinc-400">
-                  Sawah Eksisting
+                  {lang === "en" ? "Existing Paddy Fields" : "Sawah Eksisting"}
                 </div>
                 <div className="text-lg font-mono font-bold text-emerald-400 mt-0.5">
                   {stats.totalEksistingHa}{" "}
@@ -361,7 +391,7 @@ export default function PotentialFieldView({
 
               <div className="bg-black/40 border border-pink-500/30 rounded-xl p-3">
                 <div className="text-[10px] font-mono text-pink-300">
-                  Potensi Perluasan (LC)
+                  {lang === "en" ? "Expansion Potential (LC)" : "Potensi Perluasan (LC)"}
                 </div>
                 <div className="text-lg font-mono font-bold text-pink-400 mt-0.5">
                   +{stats.totalPotensialHa}{" "}
@@ -371,27 +401,27 @@ export default function PotentialFieldView({
             </div>
 
             <div className="grid grid-cols-3 gap-2.5">
-              <div className="rounded-xl border border-cyan-500/35 bg-cyan-500/10 p-3">
-                <div className="text-[10px] font-mono text-cyan-200">
+              <div className="min-w-0 overflow-hidden rounded-xl border border-cyan-500/35 bg-cyan-500/10 p-3">
+                <div className="text-[10px] font-mono leading-tight text-cyan-200">
                   {lang === "en" ? "Candidate zones" : "Zona kandidat"}
                 </div>
-                <div className="mt-0.5 text-lg font-mono font-bold text-cyan-300">
+                <div className="mt-1 truncate text-base font-mono font-bold leading-none text-cyan-300">
                   {stats.jumlahZonaBaru}
                 </div>
               </div>
-              <div className="rounded-xl border border-cyan-500/35 bg-cyan-500/10 p-3">
-                <div className="text-[10px] font-mono text-cyan-200">
+              <div className="min-w-0 overflow-hidden rounded-xl border border-cyan-500/35 bg-cyan-500/10 p-3">
+                <div className="text-[10px] font-mono leading-tight text-cyan-200">
                   +Ha {lang === "en" ? "new" : "baru"}
                 </div>
-                <div className="mt-0.5 text-lg font-mono font-bold text-cyan-300">
+                <div className="mt-1 truncate text-sm font-mono font-bold leading-none text-cyan-300">
                   +{stats.totalPotensiBaruHa}
                 </div>
               </div>
-              <div className="rounded-xl border border-cyan-500/35 bg-cyan-500/10 p-3">
-                <div className="text-[10px] font-mono text-cyan-200">
+              <div className="min-w-0 overflow-hidden rounded-xl border border-cyan-500/35 bg-cyan-500/10 p-3">
+                <div className="text-[10px] font-mono leading-tight text-cyan-200">
                   {lang === "en" ? "Avg. score" : "Skor rata-rata"}
                 </div>
-                <div className="mt-0.5 text-lg font-mono font-bold text-cyan-300">
+                <div className="mt-1 truncate text-base font-mono font-bold leading-none text-cyan-300">
                   {stats.rataRataSkor}%
                 </div>
               </div>
@@ -399,47 +429,65 @@ export default function PotentialFieldView({
 
             <div className="bg-black/40 border border-white/10 rounded-xl p-3 space-y-2 text-xs">
               <div className="flex justify-between">
-                <span className="text-zinc-400">Total Proyeksi Lahan:</span>
+                <span className="text-zinc-400">
+                  {lang === "en" ? "Total Projected Land:" : "Total Proyeksi Lahan:"}
+                </span>
                 <span className="font-mono font-bold text-white">
                   {stats.totalGabunganHa} Ha
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-400">Elevasi Rata-rata (Kontur):</span>
+                <span className="text-zinc-400">
+                  {lang === "en" ? "Average Elevation (Contour):" : "Elevasi Rata-rata (Kontur):"}
+                </span>
                 <span className="font-mono text-amber-300">
                   {stats.avgElevasi} mdpl
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-400">Infrastruktur Air (SIGI):</span>
+                <span className="text-zinc-400">
+                  {lang === "en" ? "Water Infrastructure:" : "Infrastruktur Air:"}
+                </span>
                 <span className="font-mono text-sky-300">
-                  {stats.jumlahBendungan} Bendungan • {stats.jumlahEmbung} Embung
+                  {stats.jumlahBendungan} {lang === "en" ? "Dams" : "Bendungan"} •{" "}
+                  {stats.jumlahEmbung} {lang === "en" ? "Ponds" : "Embung"}
                 </span>
               </div>
             </div>
 
             <p className="text-[11px] text-zinc-400 leading-relaxed">
-              Analisis potensi dihitung berdasarkan irisan poligon{" "}
-              <strong className="text-zinc-200">sawah eksisting</strong>, nilai
-              piksel tutupan lahan (<strong className="text-zinc-200">Land Cover</strong>),
-              kemiringan <strong className="text-zinc-200">kontur SRTM</strong>, dan
-              radius pasokan air dari <strong className="text-zinc-200">Bendungan/Embung</strong>.
+              {lang === "en"
+                ? "Potential analysis is calculated from intersections of "
+                : "Analisis potensi dihitung berdasarkan irisan poligon "}
+              <strong className="text-zinc-200">
+                {lang === "en" ? "existing paddy fields" : "sawah eksisting"}
+              </strong>
+              {lang === "en" ? ", land-cover pixel values (" : ", nilai piksel tutupan lahan ("}
+              <strong className="text-zinc-200">Land Cover</strong>
+              {lang === "en" ? "), " : "), "}
+              {lang === "en" ? "SRTM contour slope, and water supply radius from " : "kemiringan "}
+              {lang === "id" && <strong className="text-zinc-200">kontur SRTM</strong>}
+              {lang === "en" && <strong className="text-zinc-200">SRTM contours</strong>}
+              {lang === "id" ? ", dan radius pasokan air dari " : ", and water supply radius from "}
+              <strong className="text-zinc-200">
+                {lang === "en" ? "dams/ponds" : "Bendungan/Embung"}
+              </strong>.
             </p>
           </div>
 
           {/* KONTROL LAYER PETA (5 LAYER SESUAI WIREFRAME KANAN) */}
           <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 space-y-2">
             <div className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-bold mb-1">
-              Layer Overlay Geospasial
+              {lang === "en" ? "Geospatial Layer Overlay" : "Layer Overlay Geospasial"}
             </div>
 
             {[
-              { key: "batasKab", label: "Batas Kabupaten (TopoJSON)", color: "bg-purple-400" },
-              { key: "kontur", label: "Garis Kontur SRTM", color: "bg-amber-400" },
-              { key: "lcPixel", label: "LC Nilai Pixel (Land Cover)", color: "bg-pink-500" },
-              { key: "sawahEksisting", label: "Sawah Eksisting", color: "bg-emerald-400" },
-              { key: "potentialNew", label: "Potensi Lahan Baru", color: "bg-cyan-400" },
-              { key: "sigiWater", label: "Bendungan & Embung (SIGI)", color: "bg-sky-400" },
+              { key: "batasKab", label: lang === "en" ? "District Boundaries (TopoJSON)" : "Batas Kabupaten (TopoJSON)", color: "bg-purple-400" },
+              { key: "kontur", label: lang === "en" ? "SRTM Contour Lines" : "Garis Kontur SRTM", color: "bg-amber-400" },
+              { key: "lcPixel", label: lang === "en" ? "LC Pixel Value (Land Cover)" : "LC Nilai Pixel (Land Cover)", color: "bg-pink-500" },
+              { key: "sawahEksisting", label: lang === "en" ? "Existing Paddy Fields" : "Sawah Eksisting", color: "bg-emerald-400" },
+              { key: "potentialNew", label: lang === "en" ? "Potential New Fields" : "Potensi Lahan Baru", color: "bg-cyan-400" },
+              { key: "sigiWater", label: lang === "en" ? "Dams & Ponds" : "Bendungan & Embung", color: "bg-sky-400" },
             ].map((item) => {
               const active = layers[item.key as keyof typeof layers];
               return (
@@ -497,7 +545,9 @@ export default function PotentialFieldView({
                   {field.kabupaten} • {field.existingCover}
                 </div>
                 <div className="mt-1 flex justify-between gap-2 font-mono text-[10px] text-zinc-300">
-                  <span>{field.distWaterKm} km water</span>
+                  <span>
+                    {field.distWaterKm} km {lang === "en" ? "water" : "sumber air"}
+                  </span>
                   <span>+{field.luasHa} Ha</span>
                 </div>
               </button>
@@ -598,25 +648,33 @@ export default function PotentialFieldView({
                         <div className="text-zinc-400">{sawah.kabupaten}</div>
                         <div className="pt-1 border-t border-white/10 space-y-1">
                           <div>
-                            <span className="text-zinc-400">LC Pixel: </span>
+                            <span className="text-zinc-400">
+                              {lang === "en" ? "LC Pixel: " : "LC Pixel: "}
+                            </span>
                             <span className="font-mono text-pink-300">
                               {sawah.lcLabel}
                             </span>
                           </div>
                           <div>
-                            <span className="text-zinc-400">Luas / Potensi: </span>
+                            <span className="text-zinc-400">
+                              {lang === "en" ? "Area / Potential: " : "Luas / Potensi: "}
+                            </span>
                             <span className="font-mono text-emerald-300">
                               {sawah.luasHa} Ha (+{sawah.potensiPerluasanHa} Ha)
                             </span>
                           </div>
                           <div>
-                            <span className="text-zinc-400">Elevasi Kontur: </span>
+                            <span className="text-zinc-400">
+                              {lang === "en" ? "Contour Elevation: " : "Elevasi Kontur: "}
+                            </span>
                             <span className="font-mono text-amber-300">
-                              {sawah.elevasiMdpl} mdpl
+                              {sawah.elevasiMdpl} {lang === "en" ? "masl" : "mdpl"}
                             </span>
                           </div>
                           <div>
-                            <span className="text-zinc-400">Sumber Air: </span>
+                            <span className="text-zinc-400">
+                              {lang === "en" ? "Water Source: " : "Sumber Air: "}
+                            </span>
                             <span className="font-mono text-sky-300">
                               {sawah.sumberAirTerdekat} ({sawah.jarakDamKm} km)
                             </span>
@@ -722,7 +780,13 @@ export default function PotentialFieldView({
                     <Popup className="terracorp-dark-popup">
                       <div className="bg-[#09090d] text-white p-1 text-xs">
                         <div className="font-mono text-[10px] text-sky-400 uppercase font-bold">
-                          {isDam ? "BENDUNGAN" : "EMBUNG"}
+                          {isDam
+                            ? lang === "en"
+                              ? "DAM"
+                              : "BENDUNGAN"
+                            : lang === "en"
+                              ? "POND"
+                              : "EMBUNG"}
                         </div>
                         <div className="font-bold text-sm">{nama}</div>
                       </div>
