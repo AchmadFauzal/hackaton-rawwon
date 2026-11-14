@@ -963,7 +963,6 @@ export default function NasaHackathonDashboard() {
               activeBasemap={activeBasemap}
               selectedSawah={selectedSawah}
               onSelectSawah={(sawah) => setSelectedSawahId(sawah ? sawah.id : null)}
-              selectedKabupaten={activeKabupaten?.nama || "all"}
               lang={lang}
             />
 

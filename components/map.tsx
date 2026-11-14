@@ -16,10 +16,8 @@ import {
 import L from "leaflet";
 import {
   ComputedSawahPrediction,
-  buildPotentialNewFields,
   getPropFlexible,
   isInsideJavaIsland,
-  PotentialNewFieldPrediction,
 } from "@/lib/geodataEngine";
 
 interface MapProps {
@@ -31,7 +29,6 @@ interface MapProps {
   activeBasemap: "osm" | "topo" | "satellite";
   selectedSawah: ComputedSawahPrediction | null;
   onSelectSawah: (sawah: ComputedSawahPrediction | null) => void;
-  selectedKabupaten?: string;
   lang: "en" | "id";
 }
 
@@ -189,15 +186,9 @@ export default function TerraCropMap({
   activeBasemap,
   selectedSawah,
   onSelectSawah,
-  selectedKabupaten = "all",
   lang,
 }: MapProps) {
   const [cursorCoords, setCursorCoords] = useState<[number, number]>(center);
-  const [potentialRawFeatures, setPotentialRawFeatures] = useState<any[]>([]);
-  const [showExistingLayer, setShowExistingLayer] = useState(true);
-  const [showPotentialLayer, setShowPotentialLayer] = useState(true);
-  const [selectedPotentialField, setSelectedPotentialField] =
-    useState<PotentialNewFieldPrediction | null>(null);
 
   const safeCenter: [number, number] =
     Array.isArray(center) &&
@@ -210,36 +201,6 @@ export default function TerraCropMap({
 
   const damIcon = useMemo(() => createDamBadgeIcon(), []);
   const embungIcon = useMemo(() => createEmbungBadgeIcon(), []);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    fetch("/data/potential_new_fields.geojson")
-      .then((response) => {
-        if (!response.ok) throw new Error("Gagal memuat data potensi lahan baru.");
-        return response.json();
-      })
-      .then((data) => {
-        if (isMounted) {
-          setPotentialRawFeatures(Array.isArray(data?.features) ? data.features : []);
-        }
-      })
-      .catch((error) => {
-        console.error("Error loading potential new fields:", error);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const potentialFields = useMemo(
-    () => buildPotentialNewFields(potentialRawFeatures, selectedKabupaten),
-    [potentialRawFeatures, selectedKabupaten]
-  );
-  const activePotentialField = selectedPotentialField
-    ? potentialFields.find((field) => field.id === selectedPotentialField.id) || null
-    : null;
 
   // Filter Bendungan & Embung SIGI khusus wilayah Pulau Jawa
   const javaReservoirs = useMemo(() => {
@@ -303,29 +264,6 @@ export default function TerraCropMap({
     ];
   }, [selectedSawah, javaReservoirs]);
 
-  const nearestPotentialWaterConnection = useMemo(() => {
-    if (!activePotentialField) return null;
-    const [fieldLat, fieldLng] = activePotentialField.centroid;
-    let bestPosition: [number, number] | null = null;
-    let minimumDistance = Infinity;
-
-    for (const feature of javaReservoirs) {
-      const [lng, lat] = feature.geometry.coordinates;
-      const distance = Math.hypot(lat - fieldLat, lng - fieldLng);
-      if (distance < minimumDistance) {
-        minimumDistance = distance;
-        bestPosition = [lat, lng];
-      }
-    }
-
-    return bestPosition
-      ? ([activePotentialField.centroid, bestPosition] as [
-          [number, number],
-          [number, number]
-        ])
-      : null;
-  }, [activePotentialField, javaReservoirs]);
-
   const tileUrl =
     activeBasemap === "satellite"
       ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
@@ -349,41 +287,6 @@ export default function TerraCropMap({
         </span>
       </div>
 
-      <div className="absolute top-3 right-3 z-[1000] w-[220px] rounded-xl border border-white/15 bg-[#07070a]/95 p-3 text-[11px] shadow-2xl backdrop-blur-md">
-        <div className="mb-2 text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-300">
-          {lang === "en" ? "Map Layers" : "Layer Peta"}
-        </div>
-        <label className="flex cursor-pointer items-center justify-between gap-2 py-1 text-zinc-200">
-          <span className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-sm bg-emerald-400" />
-            {lang === "en" ? "Existing Paddy (LBS 2024)" : "Sawah Existing (LBS 2024)"}
-          </span>
-          <input
-            type="checkbox"
-            checked={showExistingLayer}
-            onChange={(event) => setShowExistingLayer(event.target.checked)}
-            className="accent-emerald-400"
-          />
-        </label>
-        <label className="flex cursor-pointer items-center justify-between gap-2 py-1 text-cyan-200">
-          <span className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-sm border border-cyan-200 bg-cyan-500" />
-            {lang === "en" ? "Potential New Fields" : "Potensi Lahan Baru"}
-          </span>
-          <input
-            type="checkbox"
-            checked={showPotentialLayer}
-            onChange={(event) => setShowPotentialLayer(event.target.checked)}
-            className="accent-cyan-400"
-          />
-        </label>
-        <div className="mt-2 border-t border-white/10 pt-2 font-mono text-cyan-300">
-          +{potentialFields.reduce((total, field) => total + field.luasHa, 0).toLocaleString("id-ID", {
-            maximumFractionDigits: 1,
-          })} Ha
-        </div>
-      </div>
-
       <MapContainer
         center={safeCenter}
         zoom={safeZoom}
@@ -404,7 +307,7 @@ export default function TerraCropMap({
         />
 
         {/* LAYER HAMPARAN POLIGON SAWAH EKSISTING */}
-        {showExistingLayer && sawahFeatureCollection.features.length > 0 && (
+        {sawahFeatureCollection.features.length > 0 && (
           <GeoJSON
             key={`sawah-layer-${sawahFeatureCollection.features.length}-${
               selectedSawah?.id || "none"
@@ -430,7 +333,6 @@ export default function TerraCropMap({
                 click: () => {
                   const found = sawahLookupMap.get(sId);
                   if (found) {
-                    setSelectedPotentialField(null);
                     onSelectSawah(found);
                   }
                 },
@@ -438,27 +340,6 @@ export default function TerraCropMap({
             }}
           />
         )}
-
-        {showPotentialLayer &&
-          potentialFields.map((field) => (
-            <GeoJSON
-              key={`potential-new-${field.id}`}
-              data={field.geometry}
-              style={{
-                fillColor: "#06b6d4",
-                color: "#67e8f9",
-                weight: activePotentialField?.id === field.id ? 3 : 1.5,
-                fillOpacity: activePotentialField?.id === field.id ? 0.72 : 0.46,
-                dashArray: "5 5",
-              }}
-              eventHandlers={{
-                click: () => {
-                  onSelectSawah(null);
-                  setSelectedPotentialField(field);
-                },
-              }}
-            />
-          ))}
 
         {/* GARIS PUTUS-PUTUS KONEKSI IRIGASI DARI SAWAH KE DAM / EMBUNG TERDEKAT */}
         {nearestWaterConnection && (
@@ -468,18 +349,6 @@ export default function TerraCropMap({
               color: "#38bdf8",
               weight: 2.5,
               dashArray: "6 6",
-              opacity: 0.95,
-            }}
-          />
-        )}
-
-        {nearestPotentialWaterConnection && (
-          <Polyline
-            positions={nearestPotentialWaterConnection}
-            pathOptions={{
-              color: "#67e8f9",
-              weight: 2.5,
-              dashArray: "5 5",
               opacity: 0.95,
             }}
           />
@@ -556,48 +425,6 @@ export default function TerraCropMap({
                   className="text-xs font-extrabold mt-0.5"
                 >
                   {selectedSawah.cropRecommendation}
-                </div>
-              </div>
-            </div>
-          </Popup>
-        )}
-
-        {activePotentialField && (
-          <Popup
-            key={`potential-popup-${activePotentialField.id}`}
-            position={activePotentialField.centroid}
-            eventHandlers={{
-              remove: () => setSelectedPotentialField(null),
-            }}
-          >
-            <div className="min-w-[245px] text-zinc-900 font-sans p-0.5">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-cyan-700 font-bold">
-                {activePotentialField.kabupaten} • {activePotentialField.provinsi}
-              </div>
-              <div className="text-sm font-extrabold text-zinc-900 mt-0.5 leading-snug">
-                {activePotentialField.namaBlok}
-              </div>
-              <div className="mt-1.5 mb-2.5">
-                <span className="inline-block rounded bg-cyan-600 px-2 py-0.5 text-[10px] font-bold text-white">
-                  {lang === "en" ? "SUITABILITY" : "KELAYAKAN"} {activePotentialField.suitabilityScore}%
-                </span>
-              </div>
-              <div className="space-y-1 border-t border-zinc-200 pt-2 text-[11px]">
-                <div className="flex justify-between gap-3">
-                  <span className="text-zinc-500">{lang === "en" ? "Additional area:" : "Luas tambahan:"}</span>
-                  <span className="font-mono font-bold text-cyan-700">+{activePotentialField.luasHa} Ha</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-zinc-500">{lang === "en" ? "Classification:" : "Klasifikasi:"}</span>
-                  <span className="text-right font-semibold">{activePotentialField.suitabilityTier}</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-zinc-500">{lang === "en" ? "Existing cover:" : "Tutupan saat ini:"}</span>
-                  <span className="text-right font-semibold">{activePotentialField.existingCover}</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-zinc-500">{lang === "en" ? "Water distance:" : "Jarak sumber air:"}</span>
-                  <span className="font-mono font-bold text-sky-600">{activePotentialField.distWaterKm} km</span>
                 </div>
               </div>
             </div>
