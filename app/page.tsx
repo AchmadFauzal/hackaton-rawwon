@@ -22,10 +22,13 @@ import {
   Map as MapIcon,
 } from "lucide-react";
 import {
-  FULL_INDONESIA_SAWAH_DATA,
-  ComputedSawahResult,
-  computeSawahPrediction,
-} from "@/data/dummySawahData";
+  parseBatasKabupatenTopo,
+  enrichSawahWithReservoirs,
+  computeRealSawahPrediction,
+  ComputedSawahPrediction,
+  RealSawahFeature,
+  KabupatenOption,
+} from "@/lib/geodataEngine";
 
 const MapComponent = dynamic(() => import("@/components/map"), {
   ssr: false,
@@ -38,6 +41,18 @@ const MapComponent = dynamic(() => import("@/components/map"), {
     </div>
   ),
 });
+
+const PotentialFieldComponent = dynamic(
+  () => import("@/components/PotentialFieldView"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-screen flex items-center justify-center bg-[#050505] text-xs font-mono text-zinc-400">
+        Loading Potential Field Intelligence...
+      </div>
+    ),
+  }
+);
 
 type Lang = "en" | "id";
 
@@ -221,7 +236,7 @@ export default function NasaHackathonDashboard() {
   const [isFadingOut, setIsFadingOut] = useState<boolean>(false);
 
   const [lang, setLang] = useState<Lang>("en");
-  const [selectedCityId, setSelectedCityId] = useState<string>("karawang");
+  const [selectedKabId, setSelectedKabId] = useState<string>("ALL");
   const [selectedYear, setSelectedYear] = useState<string>("2026");
   const [selectedMonth, setSelectedMonth] = useState<number>(11);
 
@@ -232,6 +247,14 @@ export default function NasaHackathonDashboard() {
   const [selectedSawahId, setSelectedSawahId] = useState<string | null>(null);
   const [activeBasemap, setActiveBasemap] = useState<"osm" | "topo" | "satellite">("satellite");
   const [showLayerMenu, setShowLayerMenu] = useState<boolean>(false);
+  const [isDataLoading, setIsDataLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [realSawahList, setRealSawahList] = useState<RealSawahFeature[]>([]);
+  const [reservoirs, setReservoirs] = useState<Record<string, unknown>[]>([]);
+  const [kabupatenList, setKabupatenList] = useState<KabupatenOption[]>([]);
+  const [batasKabGeoJson, setBatasKabGeoJson] = useState<Record<string, unknown> | null>(null);
+  const [konturGeoJson, setKonturGeoJson] = useState<Record<string, unknown> | null>(null);
+  const [activeView, setActiveView] = useState<"cycle" | "potential">("cycle");
 
   const mapSectionRef = useRef<HTMLDivElement | null>(null);
 
@@ -250,6 +273,56 @@ export default function NasaHackathonDashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadRealGeodata() {
+      try {
+        setIsDataLoading(true);
+        setLoadError(null);
+        const [sawahData, reservoirData, batasData, konturData] = await Promise.all([
+          fetch("/data/sawah_existing.geojson").then((response) => {
+            if (!response.ok) throw new Error("Gagal memuat data lahan sawah.");
+            return response.json();
+          }),
+          fetch("/data/sigi_reservoirs.geojson").then((response) => {
+            if (!response.ok) throw new Error("Gagal memuat data bendungan.");
+            return response.json();
+          }),
+          fetch("/data/batas_kab_jawa.topojson").then((response) => {
+            if (!response.ok) throw new Error("Gagal memuat batas kabupaten.");
+            return response.json();
+          }),
+          fetch("/data/kontur_jateng_slim.geojson")
+            .then((response) => (response.ok ? response.json() : null))
+            .catch(() => null),
+        ]);
+
+        if (!isMounted) return;
+        const reservoirFeatures = Array.isArray(reservoirData?.features)
+          ? reservoirData.features
+          : [];
+        setReservoirs(reservoirFeatures);
+        setRealSawahList(enrichSawahWithReservoirs(sawahData, reservoirFeatures));
+        const parsedBoundaries = parseBatasKabupatenTopo(batasData);
+        setBatasKabGeoJson(parsedBoundaries.geoJson);
+        setKabupatenList(parsedBoundaries.kabupatenList);
+        setKonturGeoJson(konturData);
+      } catch (error) {
+        if (isMounted) {
+          setLoadError(error instanceof Error ? error.message : "Gagal memuat data geospasial.");
+        }
+      } finally {
+        if (isMounted) setIsDataLoading(false);
+      }
+    }
+
+    loadRealGeodata();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleSkipOpening = () => {
     setIsFadingOut(true);
     setTimeout(() => setShowOpening(false), 450);
@@ -257,33 +330,47 @@ export default function NasaHackathonDashboard() {
 
   const t = TRANSLATIONS[lang];
 
-  const currentCity =
-    FULL_INDONESIA_SAWAH_DATA.find((c) => c.id === selectedCityId) ||
-    FULL_INDONESIA_SAWAH_DATA[0];
+  const activeKabupaten =
+    kabupatenList.find((kabupaten) => kabupaten.id === selectedKabId) || null;
+  const filteredSawah = activeKabupaten
+    ? (() => {
+        const target = activeKabupaten.nama
+          .toUpperCase()
+          .replace(/^KABUPATEN\s+|^KOTA\s+/i, "");
+        const byName = realSawahList.filter((sawah) =>
+          sawah.kabupaten.toUpperCase().includes(target)
+        );
+        if (byName.length > 0) return byName;
+
+        const [[minLat, minLng], [maxLat, maxLng]] = activeKabupaten.bounds;
+        return realSawahList.filter(
+          (sawah) =>
+            sawah.centroid[0] >= minLat - 0.1 &&
+            sawah.centroid[0] <= maxLat + 0.1 &&
+            sawah.centroid[1] >= minLng - 0.1 &&
+            sawah.centroid[1] <= maxLng + 0.1
+        );
+      })()
+    : realSawahList;
 
   const selectedMonthObj = MONTHS_DATA.find((m) => m.value === selectedMonth);
   const currentMonthName = selectedMonthObj
     ? selectedMonthObj[lang].split(" - ")[1]
     : "November";
 
-  const computedList = currentCity.lahan.map((item) =>
-    computeSawahPrediction(
-      item,
-      selectedMonth,
-      selectedYear,
-      mlRunCount,
-      currentCity.maxMasaTanamPerTahun,
-      lang
-    )
+  const computedList = filteredSawah.map((item) =>
+    computeRealSawahPrediction(item, selectedMonth, selectedYear, mlRunCount, lang)
   );
 
-  const selectedSawah: ComputedSawahResult | null = selectedSawahId
+  const selectedSawah: ComputedSawahPrediction | null = selectedSawahId
     ? computedList.find((item) => item.id === selectedSawahId) || null
     : null;
 
   const totalLuas = computedList.reduce((acc, item) => acc + item.luasHa, 0).toFixed(1);
   const avgMoisture = Math.round(
-    computedList.reduce((acc, item) => acc + item.kelembapanAktual, 0) / computedList.length
+    computedList.length
+      ? computedList.reduce((acc, item) => acc + item.kelembabanTanah, 0) / computedList.length
+      : 0
   );
 
   const hasMasaTanam4 = computedList.some((item) => item.faseTanam === 4);
@@ -292,6 +379,30 @@ export default function NasaHackathonDashboard() {
     ...t.baseLegend,
     hasMasaTanam4 ? t.mt4Legend : t.nonTanamLegend,
   ];
+
+  const mapCenter = activeKabupaten?.center ||
+    realSawahList[0]?.centroid || [-6.3227, 107.3376];
+  const regionName = activeKabupaten?.nama || "Java Region";
+  const regionProvince = activeKabupaten?.provinsi || "Java Island";
+  const primaryReservoir = selectedSawah?.sumberAirTerdekat ||
+    computedList[0]?.sumberAirTerdekat || "Bendungan / Irigasi";
+  const allComputedList = realSawahList.map((item) =>
+    computeRealSawahPrediction(item, selectedMonth, selectedYear, mlRunCount, lang)
+  );
+
+  if (activeView === "potential") {
+    return (
+      <PotentialFieldComponent
+        onBack={() => setActiveView("cycle")}
+        kabupatenList={kabupatenList}
+        batasKabGeoJson={batasKabGeoJson}
+        konturGeoJson={konturGeoJson}
+        sawahList={allComputedList}
+        reservoirs={reservoirs}
+        lang={lang}
+      />
+    );
+  }
 
   const handleRunMachineLearning = () => {
     setIsRunningML(true);
@@ -374,10 +485,10 @@ export default function NasaHackathonDashboard() {
                 <span>{t.distToDam}</span>
               </div>
               <div className="text-sm font-mono font-bold text-white mt-1">
-                {selectedSawah.jarakBendunganKm} km
+                {selectedSawah.jarakDamKm} km
               </div>
               <div className="text-[10px] text-zinc-400 mt-0.5 truncate">
-                {selectedSawah.saluranIrigasiDisplay}
+                {selectedSawah.saluranLabel}
               </div>
             </div>
 
@@ -387,10 +498,10 @@ export default function NasaHackathonDashboard() {
                 <span>{t.soilChar}</span>
               </div>
               <div className="text-sm font-bold text-white mt-1 truncate">
-                {selectedSawah.jenisTanahDisplay}
+                {selectedSawah.soilType}
               </div>
               <div className="text-[10px] text-zinc-400 mt-0.5 font-mono">
-                pH {selectedSawah.phTanah} • {selectedSawah.elevasiMdpl}{" "}
+                pH {selectedSawah.soilPh} • {selectedSawah.elevasiMdpl}{" "}
                 {lang === "en" ? "masl" : "mdpl"}
               </div>
             </div>
@@ -404,7 +515,7 @@ export default function NasaHackathonDashboard() {
                 <span>{t.soilMoisture}</span>
               </div>
               <div className="text-base font-mono font-bold text-white mt-1">
-                {selectedSawah.kelembapanAktual}%
+                {selectedSawah.kelembabanTanah}%
               </div>
             </div>
 
@@ -414,7 +525,7 @@ export default function NasaHackathonDashboard() {
                 <span>{t.rainfall}</span>
               </div>
               <div className="text-base font-mono font-bold text-white mt-1">
-                {selectedSawah.curahHujanAktual}{" "}
+                {selectedSawah.curahHujanMm}{" "}
                 <span className="text-[10px] font-normal text-zinc-400">mm</span>
               </div>
             </div>
@@ -425,7 +536,7 @@ export default function NasaHackathonDashboard() {
                 <span>{t.ndviIndex}</span>
               </div>
               <div className="text-base font-mono font-bold text-white mt-1">
-                {selectedSawah.ndviAktual}
+                {selectedSawah.ndviIndex}
               </div>
             </div>
 
@@ -435,7 +546,7 @@ export default function NasaHackathonDashboard() {
                 <span>{t.surfaceTemp}</span>
               </div>
               <div className="text-base font-mono font-bold text-white mt-1">
-                {selectedSawah.suhuAktual}°C
+                {selectedSawah.surfaceTempC}°C
               </div>
             </div>
           </div>
@@ -446,19 +557,19 @@ export default function NasaHackathonDashboard() {
               {t.optimalCropTitle}
             </div>
             <div className="text-sm font-bold text-white">
-              {selectedSawah.rekomendasiTanaman}
+              {selectedSawah.cropRecommendation}
             </div>
             <p className="text-[11px] text-zinc-300 leading-relaxed">
-              {selectedSawah.alasanAgronomi}
+              {selectedSawah.cropReasoning}
             </p>
             <div className="flex items-center justify-between pt-2 border-t border-white/10 text-[10px] text-zinc-400 font-mono">
               <span>
                 {t.areaLabel}: {selectedSawah.luasHa} Ha
               </span>
               <span>
-                {t.fertilityLabel}: {selectedSawah.indeksKesuburan}/100
+                {t.fertilityLabel}: {selectedSawah.fertilityScore}/100
               </span>
-              <span>Conf: {selectedSawah.confidence}%</span>
+              <span>Conf: {selectedSawah.confidencePct}%</span>
             </div>
           </div>
         </div>
@@ -631,6 +742,19 @@ export default function NasaHackathonDashboard() {
       <div className="flex-1 flex flex-col lg:flex-row lg:overflow-hidden">
         {/* LEFT PANEL (KONTROL + LEGENDA) */}
         <aside className="w-full lg:w-[445px] xl:w-[475px] bg-[#050505] border-b lg:border-b-0 lg:border-r border-white/10 flex flex-col shrink-0 z-20 lg:overflow-y-auto">
+          {(isDataLoading || loadError) && (
+            <div className="px-4 sm:px-5 pt-4">
+              <div
+                className={`rounded-lg border px-3 py-2 text-[11px] font-mono ${
+                  loadError
+                    ? "border-red-500/40 bg-red-500/10 text-red-300"
+                    : "border-sky-500/30 bg-sky-500/10 text-sky-300"
+                }`}
+              >
+                {loadError || "Syncing geospatial data..."}
+              </div>
+            </div>
+          )}
           {/* PARAMETERS + RUN ML BUTTON */}
           <div className="p-4 sm:p-5 border-b border-white/10 space-y-3.5 sm:space-y-4">
             <div className="flex items-center justify-between gap-2">
@@ -639,7 +763,7 @@ export default function NasaHackathonDashboard() {
                 <span>{t.controlTitle}</span>
               </span>
               <span className="text-[11px] font-medium text-pink-400 shrink-0">
-                {lang === "en" ? currentCity.provinsiEn : currentCity.provinsi}
+                {regionProvince}
               </span>
             </div>
 
@@ -650,16 +774,19 @@ export default function NasaHackathonDashboard() {
                   {t.regencyLabel}
                 </label>
                 <select
-                  value={selectedCityId}
+                  value={selectedKabId}
                   onChange={(e) => {
-                    setSelectedCityId(e.target.value);
+                    setSelectedKabId(e.target.value);
                     setSelectedSawahId(null);
                   }}
                   className="w-full bg-[#0d0d0f] border border-white/15 rounded-lg px-2 sm:px-2.5 py-2 text-xs font-medium text-white focus:outline-none focus:border-pink-500 transition-colors"
                 >
-                  {FULL_INDONESIA_SAWAH_DATA.map((city) => (
-                    <option key={city.id} value={city.id} className="bg-[#0d0d0f]">
-                      {city.nama}
+                  <option value="ALL" className="bg-[#0d0d0f]">
+                    All Java
+                  </option>
+                  {kabupatenList.map((kabupaten) => (
+                    <option key={kabupaten.id} value={kabupaten.id} className="bg-[#0d0d0f]">
+                      {kabupaten.nama}
                     </option>
                   ))}
                 </select>
@@ -710,10 +837,10 @@ export default function NasaHackathonDashboard() {
             <div className="px-3 sm:px-3.5 py-2.5 rounded-lg bg-[#0c0c0e] border border-white/10 flex items-center justify-between gap-2 text-[11px]">
               <div className="flex items-center gap-2 text-zinc-300 min-w-0">
                 <Waves className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                <span className="truncate">{currentCity.bendungan.nama}</span>
+                <span className="truncate">{primaryReservoir}</span>
               </div>
               <span className="font-mono text-zinc-400 shrink-0">
-                {currentCity.bendungan.kapasitasJutaM3}M m³
+                SIGI PUPR
               </span>
             </div>
 
@@ -753,7 +880,7 @@ export default function NasaHackathonDashboard() {
               {/* Analysis Summary Card */}
               <div className="p-3.5 sm:p-4 rounded-xl bg-[#0b0b0d] border border-white/10 space-y-2">
                 <h2 className="font-serif text-base font-bold text-white tracking-tight">
-                  {t.analysisPrefix} {currentCity.nama} — {currentMonthName} {selectedYear}
+                  {t.analysisPrefix} {regionName} — {currentMonthName} {selectedYear}
                 </h2>
                 <p className="text-zinc-400 leading-relaxed text-[11px]">{t.analysisDesc}</p>
               </div>
@@ -779,6 +906,22 @@ export default function NasaHackathonDashboard() {
                   </div>
                 ))}
               </div>
+
+              {activeKabupaten && computedList.length === 0 && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-200">
+                  Data sawah untuk {activeKabupaten.nama} belum tersedia pada file GeoJSON
+                  yang diberikan. Ini bukan karena Machine Learning belum dijalankan.
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setActiveView("potential")}
+                className="w-full py-3 px-4 rounded-lg animate-gradient-border-btn text-white font-bold text-xs tracking-wider uppercase flex items-center justify-center gap-2 shadow-lg shadow-pink-500/20 hover:opacity-95 transition-all cursor-pointer"
+              >
+                <span>Potential Field Intelligence</span>
+                <span aria-hidden="true">→</span>
+              </button>
             </div>
 
             {/* Bottom Brand Watermark (Desktop Sidebar) */}
@@ -805,25 +948,27 @@ export default function NasaHackathonDashboard() {
               <span>{t.mapSectionTitle}</span>
             </span>
             <span className="text-[10px] font-mono text-zinc-400">
-              {currentCity.nama}
+              {regionName}
             </span>
           </div>
 
           {/* Container Peta */}
           <div className="relative w-full h-[460px] sm:h-[520px] lg:h-full lg:flex-1 rounded-xl lg:rounded-none overflow-hidden border border-white/15 lg:border-0 bg-[#050505]">
             <MapComponent
-              selectedCity={currentCity}
-              selectedMonth={selectedMonth}
+              center={mapCenter}
+              zoom={activeKabupaten ? 11 : 9}
               selectedYear={selectedYear}
+              sawahList={computedList}
+              reservoirs={reservoirs}
               activeBasemap={activeBasemap}
               selectedSawah={selectedSawah}
               onSelectSawah={(sawah) => setSelectedSawahId(sawah ? sawah.id : null)}
-              mlRunCount={mlRunCount}
+              selectedKabupaten={activeKabupaten?.nama || "all"}
               lang={lang}
             />
 
             {/* Basemap Switcher */}
-            <div className="absolute bottom-4 left-3 lg:bottom-6 lg:left-4 z-[1000]">
+            <div className="absolute bottom-4 right-3 lg:bottom-6 lg:right-4 z-[1000]">
               <div className="relative">
                 <button
                   onClick={() => setShowLayerMenu(!showLayerMenu)}
@@ -834,7 +979,7 @@ export default function NasaHackathonDashboard() {
                 </button>
 
                 {showLayerMenu && (
-                  <div className="absolute bottom-11 left-0 w-52 bg-[#0a0a0c] border border-white/15 rounded-lg shadow-2xl p-1.5 space-y-1">
+                  <div className="absolute bottom-11 right-0 w-52 bg-[#0a0a0c] border border-white/15 rounded-lg shadow-2xl p-1.5 space-y-1">
                     {[
                       { id: "satellite", label: "Esri Satellite Imagery" },
                       { id: "topo", label: "Esri Topographic" },

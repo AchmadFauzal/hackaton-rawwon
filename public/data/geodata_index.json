@@ -1,0 +1,25 @@
+{
+  "generatedAt": "2026-11-14T17:01:59.829Z",
+  "datasets": {
+    "reservoirs": {
+      "url": "/data/sigi_reservoirs.geojson",
+      "type": "geojson",
+      "description": "Titik Bendungan & Embung SIGI PUPR Nasional"
+    },
+    "batasKabupaten": {
+      "url": "/data/batas_kab_jawa.topojson",
+      "type": "topojson",
+      "description": "Batas Administrasi Kabupaten/Kota Se-Pulau Jawa"
+    },
+    "sawahExisting": {
+      "url": "/data/sawah_existing.geojson",
+      "type": "geojson",
+      "description": "Poligon Lahan Sawah Existing"
+    },
+    "konturJateng": {
+      "url": "/data/kontur_jateng_slim.geojson",
+      "type": "geojson",
+      "description": "Garis Kontur Elevasi SRTM Jawa Tengah"
+    }
+  }
+}
