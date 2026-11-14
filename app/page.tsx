@@ -522,7 +522,7 @@ export default function NasaHackathonDashboard() {
                 transform: translateY(0);
               }
             }
-            .terracorp-opening-title {
+            .terracrop-opening-title {
               font-weight: 800;
               color: #050505;
               background: linear-gradient(
@@ -543,20 +543,20 @@ export default function NasaHackathonDashboard() {
                 strokeShimmer 2.1s linear 1.1s infinite;
             }
             @media (min-width: 640px) {
-              .terracorp-opening-title {
+              .terracrop-opening-title {
                 -webkit-text-stroke: 3.5px transparent;
               }
             }
-            .terracorp-opening-sub {
+            .terracrop-opening-sub {
               animation: fadeInSub 1.4s ease-out forwards;
             }
           `}</style>
 
           <div className="px-6 text-center">
-            <div className="terracorp-opening-title text-5xl sm:text-7xl md:text-8xl lg:text-9xl leading-none">
-              TerraCorp
+            <div className="terracrop-opening-title text-5xl sm:text-7xl md:text-8xl lg:text-9xl leading-none">
+              TerraCrop
             </div>
-            <div className="terracorp-opening-sub mt-4 sm:mt-5 flex items-center justify-center gap-2 text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.22em] sm:tracking-[0.28em] text-zinc-500">
+            <div className="terracrop-opening-sub mt-4 sm:mt-5 flex items-center justify-center gap-2 text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.22em] sm:tracking-[0.28em] text-zinc-500">
               <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse shrink-0" />
               <span>NASA Space Apps • Initializing Telemetry</span>
             </div>
