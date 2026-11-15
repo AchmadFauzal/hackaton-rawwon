@@ -1207,7 +1207,7 @@ export default function PotentialFieldView({
                     pathOptions={{
                       color: "#ffffff",
                       weight: 2,
-                      fillColor: isDam ? "#3b82f6" : "#f59e0b",
+                      fillColor: isDam ? "#3b82f6" : "#059669",
                       fillOpacity: 1,
                     }}
                   >
