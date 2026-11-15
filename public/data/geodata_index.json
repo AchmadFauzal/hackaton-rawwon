@@ -11,12 +11,12 @@
       "type": "topojson",
       "description": "Batas Administrasi Kabupaten/Kota Se-Pulau Jawa"
     },
-    "sawahExisting": {
-      "url": "/data/sawah_existing.geojson",
+    "plantingPatterns": {
+      "url": "/api/planting-patterns",
       "type": "geojson",
-      "description": "Poligon Lahan Sawah Existing"
+      "description": "Ringkasan pola tanam per kota/kabupaten"
     },
-    "konturJateng": {
+    "konturJawa": {
       "url": "/data/kontur_jawa_all.geojson",
       "type": "geojson",
       "description": "Garis Kontur Elevasi SRTM Se-Pulau Jawa"

@@ -1,7 +1,7 @@
 // src/app/page.tsx
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import {
   Loader2,
@@ -28,6 +28,7 @@ import {
   ComputedSawahPrediction,
   RealSawahFeature,
   KabupatenOption,
+  normalizeKabName,
 } from "@/lib/geodataEngine";
 
 const MapComponent = dynamic(() => import("@/components/map"), {
@@ -250,6 +251,7 @@ export default function NasaHackathonDashboard() {
   const [isDataLoading, setIsDataLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [realSawahList, setRealSawahList] = useState<RealSawahFeature[]>([]);
+  const [plantingCities, setPlantingCities] = useState<string[]>([]);
   const [reservoirs, setReservoirs] = useState<Record<string, unknown>[]>([]);
   const [kabupatenList, setKabupatenList] = useState<KabupatenOption[]>([]);
   const [batasKabGeoJson, setBatasKabGeoJson] = useState<Record<string, unknown> | null>(null);
@@ -280,11 +282,7 @@ export default function NasaHackathonDashboard() {
       try {
         setIsDataLoading(true);
         setLoadError(null);
-        const [sawahData, reservoirData, batasData, konturData] = await Promise.all([
-          fetch("/data/sawah_existing.geojson").then((response) => {
-            if (!response.ok) throw new Error("Gagal memuat data lahan sawah.");
-            return response.json();
-          }),
+        const [reservoirData, batasData, konturData, plantingManifest] = await Promise.all([
           fetch("/data/sigi_reservoirs.geojson").then((response) => {
             if (!response.ok) throw new Error("Gagal memuat data bendungan.");
             return response.json();
@@ -296,6 +294,10 @@ export default function NasaHackathonDashboard() {
           fetch("/data/kontur_jawa_all.geojson", { cache: "no-store" })
             .then((response) => (response.ok ? response.json() : null))
             .catch(() => null),
+          fetch("/api/planting-patterns", { cache: "no-store" }).then((response) => {
+            if (!response.ok) throw new Error("Gagal membaca daftar pola tanam.");
+            return response.json();
+          }),
         ]);
 
         if (!isMounted) return;
@@ -303,10 +305,22 @@ export default function NasaHackathonDashboard() {
           ? reservoirData.features
           : [];
         setReservoirs(reservoirFeatures);
-        setRealSawahList(enrichSawahWithReservoirs(sawahData, reservoirFeatures));
         const parsedBoundaries = parseBatasKabupatenTopo(batasData);
         setBatasKabGeoJson(parsedBoundaries.geoJson);
-        setKabupatenList(parsedBoundaries.kabupatenList);
+        const cities: string[] = Array.isArray(plantingManifest?.cities)
+          ? plantingManifest.cities.filter(
+              (city: unknown): city is string => typeof city === "string"
+            )
+          : [];
+        setPlantingCities(cities);
+        setKabupatenList(
+          parsedBoundaries.kabupatenList.filter((kabupaten) =>
+            cities.some(
+              (city) =>
+                normalizeKabName(city) === normalizeKabName(kabupaten.nama)
+            )
+          )
+        );
         setKonturGeoJson(konturData);
       } catch (error) {
         if (isMounted) {
@@ -323,6 +337,51 @@ export default function NasaHackathonDashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    if (plantingCities.length === 0) return;
+
+    let isMounted = true;
+    const selectedCity =
+      selectedKabId === "ALL"
+        ? "ALL"
+        : kabupatenList.find((kabupaten) => kabupaten.id === selectedKabId)?.nama;
+    if (!selectedCity) return;
+
+    setIsDataLoading(true);
+    fetch(`/api/planting-patterns?city=${encodeURIComponent(selectedCity)}`, {
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data?.error || "Gagal memuat pola tanam.");
+        return data;
+      })
+      .then((data) => {
+        if (isMounted) {
+          setRealSawahList(
+            enrichSawahWithReservoirs(
+              data,
+              reservoirs,
+              selectedCity === "ALL" ? "" : selectedCity
+            )
+          );
+        }
+      })
+      .catch((error) => {
+        if (isMounted) {
+          setLoadError(error instanceof Error ? error.message : "Gagal memuat pola tanam.");
+          setRealSawahList([]);
+        }
+      })
+      .finally(() => {
+        if (isMounted) setIsDataLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [kabupatenList, plantingCities, reservoirs, selectedKabId]);
+
   const handleSkipOpening = () => {
     setIsFadingOut(true);
     setTimeout(() => setShowOpening(false), 450);
@@ -332,7 +391,7 @@ export default function NasaHackathonDashboard() {
 
   const activeKabupaten =
     kabupatenList.find((kabupaten) => kabupaten.id === selectedKabId) || null;
-  const filteredSawah = activeKabupaten
+  const geographicSawah = activeKabupaten
     ? (() => {
         const target = activeKabupaten.nama
           .toUpperCase()
@@ -352,6 +411,30 @@ export default function NasaHackathonDashboard() {
         );
       })()
     : realSawahList;
+
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    realSawahList.forEach((sawah) => {
+      ["awal_genangan", "tanam_1", "tanam_2", "tanam_3"].forEach((key) => {
+        const year = String(sawah.properties?.[key] || "").match(/^\d{4}/)?.[0];
+        if (year) years.add(year);
+      });
+    });
+    return years.size > 0 ? Array.from(years).sort() : YEARS;
+  }, [realSawahList]);
+
+  useEffect(() => {
+    if (!availableYears.includes(selectedYear)) {
+      setSelectedYear(availableYears[availableYears.length - 1] || "2026");
+    }
+  }, [availableYears, selectedYear]);
+
+  const filteredSawah = geographicSawah.filter((sawah) => {
+    const dates = ["awal_genangan", "tanam_1", "tanam_2", "tanam_3"]
+      .map((key) => String(sawah.properties?.[key] || ""))
+      .filter((value) => /^\d{4}/.test(value));
+    return dates.length === 0 || dates.some((value) => value.startsWith(selectedYear));
+  });
 
   const selectedMonthObj = MONTHS_DATA.find((m) => m.value === selectedMonth);
   const currentMonthName = selectedMonthObj
@@ -805,7 +888,7 @@ export default function NasaHackathonDashboard() {
                   }}
                   className="w-full bg-[#0d0d0f] border border-white/15 rounded-lg px-2 py-2 text-xs font-mono font-medium text-white focus:outline-none focus:border-pink-500 transition-colors"
                 >
-                  {YEARS.map((yr) => (
+                  {availableYears.map((yr) => (
                     <option key={yr} value={yr} className="bg-[#0d0d0f]">
                       {yr}
                     </option>
@@ -965,6 +1048,7 @@ export default function NasaHackathonDashboard() {
               selectedSawah={selectedSawah}
               onSelectSawah={(sawah) => setSelectedSawahId(sawah ? sawah.id : null)}
               lang={lang}
+              bounds={activeKabupaten?.bounds || null}
             />
 
             {/* Basemap Switcher */}

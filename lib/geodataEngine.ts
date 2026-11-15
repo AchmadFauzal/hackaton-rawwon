@@ -336,7 +336,8 @@ export function parseBatasKabupatenTopo(topoData: any): {
 
 export function enrichSawahWithReservoirs(
   sawahGeoJson: any,
-  reservoirFeatures: any[]
+  reservoirFeatures: any[],
+  fallbackKabupaten = ""
 ): RealSawahFeature[] {
   const features = sawahGeoJson?.features || [];
   // Filter hanya reservoir Pulau Jawa
@@ -393,12 +394,21 @@ export function enrichSawahWithReservoirs(
         ? "Secondary Canal"
         : "Tertiary / Rainfed";
 
-    const kab = getPropFlexible(props, ["WADMKK", "KABUPATEN", "KAB_KOTA"], "Jawa Tengah");
+    const kab = getPropFlexible(
+      props,
+      ["WADMKK", "KABUPATEN", "KAB_KOTA"],
+      fallbackKabupaten || "Jawa Tengah"
+    );
     const prov = getPropFlexible(props, ["WADMPR", "PROVINSI"], "JAWA");
+    const uid = getPropFlexible(
+      props,
+      ["uid", "UID"],
+      `P_${String(idx + 1).padStart(8, "0")}`
+    );
     const namaBlok = getPropFlexible(
       props,
-      ["NAMOBJ", "BLOK", "DESA", "WADMKD", "KETERANGAN"],
-      `Blok Irigasi ${kab} #${idx + 1}`
+      ["NAMOBJ", "BLOK", "DESA", "WADMKD", "KETERANGAN", "uid"],
+      `Blok Sawah ${kab} #${idx + 1}`
     );
 
     const elevasiRaw = parseFloat(getPropFlexible(props, ["ELEVASI", "CONTOUR", "Z", "MDPL"], ""));
@@ -415,7 +425,7 @@ export function enrichSawahWithReservoirs(
     };
 
     return {
-      id: `sawah-${idx + 1}`,
+      id: uid,
       namaBlok,
       kabupaten: kab,
       provinsi: prov,

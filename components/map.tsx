@@ -31,6 +31,7 @@ interface MapProps {
   selectedSawah: ComputedSawahPrediction | null;
   onSelectSawah: (sawah: ComputedSawahPrediction | null) => void;
   lang: "en" | "id";
+  bounds?: [[number, number], [number, number]] | null;
 }
 
 // =====================================================================
@@ -154,17 +155,23 @@ const FASE_STYLE: Record<
 function MapCameraAndCursor({
   center,
   zoom,
+  bounds,
   onCursorMove,
 }: {
   center: [number, number];
   zoom: number;
+  bounds?: [[number, number], [number, number]] | null;
   onCursorMove: (coords: [number, number]) => void;
 }) {
   const map = useMap();
 
   useEffect(() => {
-    map.flyTo(center, zoom, { duration: 1.0 });
-  }, [center, zoom, map]);
+    if (bounds) {
+      map.fitBounds(bounds, { padding: [24, 24], maxZoom: 12, duration: 1.0 });
+    } else {
+      map.flyTo(center, zoom, { duration: 1.0 });
+    }
+  }, [bounds, center, zoom, map]);
 
   useMapEvents({
     mousemove(e) {
@@ -188,6 +195,7 @@ export default function TerraCropMap({
   selectedSawah,
   onSelectSawah,
   lang,
+  bounds,
 }: MapProps) {
   const [cursorCoords, setCursorCoords] = useState<[number, number]>(center);
 
@@ -291,6 +299,7 @@ export default function TerraCropMap({
       <MapContainer
         center={safeCenter}
         zoom={safeZoom}
+        bounds={bounds || undefined}
         className="w-full h-full z-0"
         zoomControl={false}
         preferCanvas={true}
@@ -428,6 +437,39 @@ export default function TerraCropMap({
                   {selectedSawah.cropRecommendation}
                 </div>
               </div>
+
+              {selectedSawah.properties?.pola_mt && (
+                <div className="border-t border-zinc-200 mt-2 pt-1.5 space-y-1">
+                  <div className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 font-bold">
+                    {lang === "en" ? "Planting Pattern" : "Pola Tanam"}
+                  </div>
+                  <div className="flex justify-between gap-3 text-[11px]">
+                    <span className="text-zinc-500">
+                      {lang === "en" ? "Pattern / IP:" : "Pola / IP:"}
+                    </span>
+                    <span className="font-mono font-bold text-emerald-700">
+                      {String(selectedSawah.properties.pola_mt)} /{" "}
+                      {String(selectedSawah.properties.IP_class || "-")}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-3 text-[11px]">
+                    <span className="text-zinc-500">
+                      {lang === "en" ? "Cycles / Authority:" : "Siklus / Kewenangan:"}
+                    </span>
+                    <span className="text-right font-semibold">
+                      {String(selectedSawah.properties.n_siklus || "-")} /{" "}
+                      {String(selectedSawah.properties.kewenangan || "-")}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-3 text-[11px]">
+                    <span className="text-zinc-500">NDVI max / min:</span>
+                    <span className="font-mono font-bold">
+                      {Number(selectedSawah.properties.ndvi_max || 0).toFixed(2)} /{" "}
+                      {Number(selectedSawah.properties.ndvi_min || 0).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </Popup>
         )}
