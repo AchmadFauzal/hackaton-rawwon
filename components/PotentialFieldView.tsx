@@ -131,66 +131,6 @@ function renderPotentialZonePopup(
   );
 }
 
-function escapePopupHtml(value: string) {
-  return value.replace(/[&<>"']/g, (character) => {
-    const entities: Record<string, string> = {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#039;",
-    };
-    return entities[character];
-  });
-}
-
-function buildPopupHtml(
-  field: PotentialNewFieldPrediction,
-  waterSource: NearestReservoir | null | undefined,
-  lang: "en" | "id"
-) {
-  const eyebrow = escapePopupHtml(
-    `${field.kabupaten} • ${field.provinsi}`.toUpperCase()
-  );
-  const waterSourceLabel = escapePopupHtml(
-    waterSource
-      ? `${waterSource.type} ${waterSource.name} (±${waterSource.distanceKm} km)`
-      : `${field.distWaterKm} km`
-  );
-  const labels =
-    lang === "en"
-      ? {
-          area: "Additional area:",
-          classification: "Classification:",
-          cover: "Existing cover:",
-          water: "Water source:",
-          score: "SUITABILITY",
-        }
-      : {
-          area: "Luas tambahan:",
-          classification: "Klasifikasi:",
-          cover: "Tutupan lahan:",
-          water: "Sumber aliran air:",
-          score: "KELAYAKAN",
-        };
-
-  return `
-    <div class="min-w-[245px] text-zinc-900 font-sans p-0.5">
-      <div class="text-[10px] font-mono uppercase tracking-wider text-zinc-500 font-bold">${eyebrow}</div>
-      <div class="text-sm font-extrabold text-zinc-900 mt-0.5 leading-snug">${escapePopupHtml(field.namaBlok)}</div>
-      <div class="mt-1.5 mb-2.5">
-        <span class="inline-block rounded bg-cyan-600 px-2 py-0.5 text-[10px] font-bold text-white">${labels.score} ${field.suitabilityScore}%</span>
-      </div>
-      <div class="space-y-1 border-t border-zinc-200 pt-2 text-[11px]">
-        <div class="flex justify-between gap-3"><span class="text-zinc-500">${labels.area}</span><span class="font-mono font-bold text-cyan-700">+${field.luasHa.toLocaleString("id-ID")} Ha</span></div>
-        <div class="flex justify-between gap-3"><span class="text-zinc-500">${labels.classification}</span><span class="text-right font-semibold">${escapePopupHtml(field.suitabilityTier)}</span></div>
-        <div class="flex justify-between gap-3"><span class="text-zinc-500">${labels.cover}</span><span class="text-right font-semibold">${escapePopupHtml(field.existingCover)}</span></div>
-        <div class="flex justify-between gap-3"><span class="text-zinc-500">${labels.water}</span><span class="text-right font-mono font-bold text-sky-600">${waterSourceLabel}</span></div>
-      </div>
-    </div>
-  `;
-}
-
 const LC_PIXEL_COLORS: Record<number, string> = {
   1: "#10b981", // LC-1: Irigasi Teknis
   2: "#38bdf8", // LC-2: Tadah Hujan
@@ -315,12 +255,16 @@ function PotentialZonePopup({
   return (
     <Popup
       ref={popupRef}
-      key={`popup-${field.namaBlok}-${position[0]}-${position[1]}`}
+      key={`potential-popup-${field.id}`}
       position={position}
       pane="popupPane"
       maxWidth={320}
       autoPan={true}
-      eventHandlers={{ remove: onRemove }}
+      closeButton={true}
+      closeOnClick={false}
+      eventHandlers={{
+        remove: onRemove,
+      }}
     >
       {renderPotentialZonePopup(field, waterSource, lang)}
     </Popup>
@@ -384,7 +328,6 @@ export default function PotentialFieldView({
   const [selectedPotential, setSelectedPotential] =
     useState<PotentialNewFieldPrediction | null>(null);
   const [popupLatLng, setPopupLatLng] = useState<[number, number] | null>(null);
-  const [popupMode, setPopupMode] = useState<"sidebar" | "map">("sidebar");
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(
     () => typeof window !== "undefined" && window.innerWidth < 768
@@ -392,10 +335,6 @@ export default function PotentialFieldView({
   const damIcon = useMemo(() => createDamBadgeIcon(), []);
   const embungIcon = useMemo(() => createEmbungBadgeIcon(), []);
   const canvasRenderer = useMemo(() => L.canvas({ padding: 0.3 }), []);
-  const potentialSvgRenderer = useMemo(
-    () => L.svg({ padding: 0.3, pane: "potential-fields-pane" }),
-    []
-  );
 
   useEffect(() => {
     const updateViewport = () => setIsMobile(window.innerWidth < 768);
@@ -543,6 +482,26 @@ export default function PotentialFieldView({
     }
     return filteredPotentialFields.slice(0, 400);
   }, [filteredPotentialFields, isMobile, selectedKab]);
+  const potentialFeatureCollection = useMemo(
+    () => ({
+      type: "FeatureCollection" as const,
+      features: renderedPotentialFields.map((field) => ({
+        type: "Feature" as const,
+        id: field.id,
+        geometry: field.geometry,
+        properties: {
+          ...field.properties,
+          potentialId: field.id,
+        },
+      })),
+    }),
+    [renderedPotentialFields]
+  );
+  const potentialFieldLookup = useMemo(() => {
+    const lookup = new Map<string, PotentialNewFieldPrediction>();
+    renderedPotentialFields.forEach((field) => lookup.set(field.id, field));
+    return lookup;
+  }, [renderedPotentialFields]);
   const renderedReservoirs = useMemo(() => {
     if (!isMobile || selectedKab || filteredReservoirs.length <= 100) {
       return filteredReservoirs;
@@ -897,7 +856,6 @@ export default function PotentialFieldView({
                 key={field.id}
                 onClick={() => {
                   setSelectedPotential(field);
-                  setPopupMode("sidebar");
                   setPopupLatLng(field.centroid);
                   window.setTimeout(scrollToMap, 0);
                 }}
@@ -1080,45 +1038,40 @@ export default function PotentialFieldView({
               })}
 
             {/* 5. LAYER PREDIKSI LAHAN SAWAH BARU */}
-            {layers.potentialNew && (
-              <Pane name="potential-fields-pane" style={{ zIndex: 650 }}>
-                {renderedPotentialFields.map((field) => (
-                  <GeoJSON
-                    key={`pot-${effectiveSelectedKabId}-${filteredPotentialFields.length}-${layers.potentialNew}-${field.id}`}
-                    data={field.geometry}
-                    pane="potential-fields-pane"
-                    interactive={true}
-                    style={{
+            {layers.potentialNew && potentialFeatureCollection.features.length > 0 && (
+              <Pane name="potential-fields-pane" style={{ zIndex: 800 }}>
+                <GeoJSON
+                  key={`potential-layer-${potentialFeatureCollection.features.length}-${activePotential?.id || "none"}`}
+                  data={potentialFeatureCollection as any}
+                  pane="potential-fields-pane"
+                  style={(feature) => {
+                    const potentialId = feature?.properties?.potentialId;
+                    const isSelected = activePotential?.id === potentialId;
+                    return {
                       fillColor: "#06b6d4",
-                      fillOpacity: 0.55,
-                      color: "#22d3ee",
-                      weight: activePotential?.id === field.id ? 3 : 2.5,
+                      fillOpacity: isSelected ? 0.72 : 0.55,
+                      color: isSelected ? "#ffffff" : "#22d3ee",
+                      weight: isSelected ? 3 : 2.5,
                       dashArray: "6 4",
-                      renderer: potentialSvgRenderer,
-                    }}
-                    onEachFeature={(_feature, layer) => {
-                      const pathLayer = layer as L.Path;
-                      layer.bindPopup(
-                        buildPopupHtml(
-                          field,
-                          potentialWaterSources.get(field.id),
-                          lang
-                        ),
-                        {
-                          pane: "popupPane",
-                          maxWidth: 320,
-                          className: "terracrop-pot-popup",
-                        }
-                      );
-                      layer.on("mouseover", () => {
+                    };
+                  }}
+                  onEachFeature={(feature, layer) => {
+                    const field = potentialFieldLookup.get(
+                      feature?.properties?.potentialId
+                    );
+                    if (!field) return;
+
+                    const pathLayer = layer as L.Path;
+                    layer.on({
+                      mouseover: () => {
                         pathLayer.bringToFront();
                         pathLayer.setStyle({ weight: 3 });
                         (pathLayer.getElement() as SVGElement | null)?.style.setProperty(
                           "cursor",
                           "pointer"
                         );
-                      });
-                      layer.on("mouseout", () => {
+                      },
+                      mouseout: () => {
                         pathLayer.setStyle({
                           weight: activePotential?.id === field.id ? 3 : 2.5,
                         });
@@ -1126,34 +1079,15 @@ export default function PotentialFieldView({
                           "cursor",
                           "default"
                         );
-                      });
-                      layer.on("click", (event: L.LeafletMouseEvent) => {
+                      },
+                      click: (event: L.LeafletMouseEvent) => {
                         L.DomEvent.stopPropagation(event);
                         setSelectedPotential(field);
-                        setPopupMode("map");
                         setPopupLatLng([event.latlng.lat, event.latlng.lng]);
-                        (layer as L.Layer & {
-                          openPopup: (latlng?: L.LatLngExpression) => void;
-                        }).openPopup(event.latlng);
-                      });
-                    }}
-                  >
-                    <Tooltip sticky>
-                      <strong>{field.namaBlok}</strong>
-                      <br />
-                      {field.kabupaten} • {field.luasHa.toLocaleString("id-ID")} Ha
-                      <br />
-                      {field.suitabilityScore}% • {field.suitabilityTier}
-                      <br />
-                      {field.existingCover} •{" "}
-                      {potentialWaterSources.get(field.id)
-                        ? `${potentialWaterSources.get(field.id)?.type} ${
-                            potentialWaterSources.get(field.id)?.name
-                          } (±${potentialWaterSources.get(field.id)?.distanceKm} km)`
-                        : `${field.distWaterKm} km water`}
-                    </Tooltip>
-                  </GeoJSON>
-                ))}
+                      },
+                    });
+                  }}
+                />
               </Pane>
             )}
 
@@ -1170,7 +1104,7 @@ export default function PotentialFieldView({
               />
             )}
 
-            {activePotential && popupMode === "sidebar" && (
+            {activePotential && (
               <PotentialZonePopup
                 field={activePotential}
                 position={popupLatLng || activePotential.centroid}
@@ -1185,7 +1119,7 @@ export default function PotentialFieldView({
 
             {/* 6. LAYER BENDUNGAN & EMBUNG (SIGI) */}
             {layers.sigiWater && (
-              <Pane name="reservoirs-top-pane" style={{ zIndex: 680 }}>
+              <Pane name="reservoirs-top-pane" style={{ zIndex: 750 }}>
               {renderedReservoirs.map((feat, idx) => {
                 const [lng, lat] = feat.geometry.coordinates;
                 const props = feat.properties || {};
