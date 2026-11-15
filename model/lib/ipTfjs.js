@@ -46,6 +46,24 @@ export function describe(probs) {
 /** Memuat model + praproses + fitur dari satu folder tahun. */
 export async function loadIP(baseUrl) {
   const tf = await import("@tensorflow/tfjs");
+  class L2 extends tf.serialization.Serializable {
+    constructor(config = {}) {
+      super();
+      this.l2 = config.l2 ?? 0;
+      this.delegate = tf.regularizers.l2({ l2: this.l2 });
+    }
+
+    apply(x) {
+      return this.delegate.apply(x);
+    }
+
+    getConfig() {
+      return { l2: this.l2 };
+    }
+  }
+
+  L2.className = "L2";
+  tf.serialization.registerClass(L2);
   const [model, prep, fitur] = await Promise.all([
     tf.loadLayersModel(`${baseUrl}/model.json`),
     fetch(`${baseUrl}/prep.json`).then((r) => r.json()),

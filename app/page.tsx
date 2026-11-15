@@ -425,7 +425,8 @@ export default function NasaHackathonDashboard() {
         if (year) years.add(year);
       });
     });
-    return years.size > 0 ? Array.from(years).sort() : YEARS;
+    YEARS.forEach((year) => years.add(year));
+    return Array.from(years).sort();
   }, [realSawahList]);
 
   useEffect(() => {
@@ -434,12 +435,7 @@ export default function NasaHackathonDashboard() {
     }
   }, [availableYears, selectedYear]);
 
-  const filteredSawah = geographicSawah.filter((sawah) => {
-    const dates = ["awal_genangan", "tanam_1", "tanam_2", "tanam_3"]
-      .map((key) => String(sawah.properties?.[key] || ""))
-      .filter((value) => /^\d{4}/.test(value));
-    return dates.length === 0 || dates.some((value) => value.startsWith(selectedYear));
-  });
+  const filteredSawah = geographicSawah;
 
   const selectedMonthObj = MONTHS_DATA.find((m) => m.value === selectedMonth);
   const currentMonthName = selectedMonthObj
@@ -447,7 +443,15 @@ export default function NasaHackathonDashboard() {
     : "November";
 
   const getPredictedFase = (item: RealSawahFeature): PlantingSeason | undefined => {
-    return modelFasesByUid[item.id];
+    const modelFase = modelFasesByUid[item.id];
+    if (modelFase !== undefined) return modelFase;
+
+    const ipClass = String(item.properties?.IP_class || "").toUpperCase();
+    if (ipClass === "IP100") return 1;
+    if (ipClass === "IP200") return 2;
+    if (ipClass === "IP300") return 3;
+    if (ipClass === "TIDAK ADA SIKLUS") return 0;
+    return undefined;
   };
 
   const computedList = filteredSawah.map((item) =>
@@ -516,31 +520,35 @@ export default function NasaHackathonDashboard() {
     setSelectedSawahId(null);
 
     try {
-      if (!modelRef.current) {
-        modelRef.current = await loadIP("/model");
-      }
+      if (Number(selectedYear) <= 2025) {
+        setModelFasesByUid({});
+      } else {
+        if (!modelRef.current) {
+          modelRef.current = await loadIP("/model");
+        }
 
-      const records = await fetch("/model/data_mentah.json").then((response) => {
-        if (!response.ok) throw new Error("Data Excel hasil export tidak ditemukan.");
-        return response.json();
-      });
-      const featureSet = buildFeatures(records, Number(selectedYear));
-      const probabilities = await predictBatch(
-        { ...modelRef.current, fitur: { features: featureSet.names } },
-        featureSet.petak.map((petak) => petak.x)
-      );
-      if (probabilities.length > 0) {
-        const predictedFases: Record<string, PlantingSeason> = {};
-        featureSet.petak.forEach((petak, index) => {
-          const scores = probabilities[index];
-          const modelClass = scores.reduce(
-            (best: number, score: number, classIndex: number) =>
-              score > scores[best] ? classIndex : best,
-            0
-          );
-          predictedFases[petak.uid] = modelClass as PlantingSeason;
+        const records = await fetch("/model/data_mentah.json").then((response) => {
+          if (!response.ok) throw new Error("Data Excel hasil export tidak ditemukan.");
+          return response.json();
         });
-        setModelFasesByUid(predictedFases);
+        const featureSet = buildFeatures(records, Number(selectedYear));
+        const probabilities = await predictBatch(
+          { ...modelRef.current, fitur: { features: featureSet.names } },
+          featureSet.petak.map((petak) => petak.x)
+        );
+        if (probabilities.length > 0) {
+          const predictedFases: Record<string, PlantingSeason> = {};
+          featureSet.petak.forEach((petak, index) => {
+            const scores = probabilities[index];
+            const modelClass = scores.reduce(
+              (best: number, score: number, classIndex: number) =>
+                score > scores[best] ? classIndex : best,
+              0
+            );
+            predictedFases[petak.uid] = modelClass as PlantingSeason;
+          });
+          setModelFasesByUid(predictedFases);
+        }
       }
 
       setIsRunningML(false);

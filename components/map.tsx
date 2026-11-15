@@ -249,6 +249,11 @@ export default function TerraCropMap({
     return map;
   }, [sawahList]);
 
+  const sawahPhaseSignature = useMemo(
+    () => sawahList.map((sawah) => `${sawah.id}:${sawah.faseTanam}`).join("|"),
+    [sawahList]
+  );
+
   // Hitung garis penghubung irigasi dari poligon sawah terpilih ke DAM / EMBUNG terdekat
   const nearestWaterConnection = useMemo(() => {
     if (!selectedSawah || !Array.isArray(selectedSawah.centroid)) return null;
@@ -319,7 +324,7 @@ export default function TerraCropMap({
         {/* LAYER HAMPARAN POLIGON SAWAH EKSISTING */}
         {sawahFeatureCollection.features.length > 0 && (
           <GeoJSON
-            key={`sawah-layer-${sawahFeatureCollection.features.length}-${
+            key={`sawah-layer-${sawahFeatureCollection.features.length}-${sawahPhaseSignature}-${
               selectedSawah?.id || "none"
             }`}
             data={sawahFeatureCollection as any}
