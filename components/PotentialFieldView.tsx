@@ -1,7 +1,7 @@
 // src/components/PotentialFieldView.tsx
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, type RefObject } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -181,18 +181,33 @@ const createEmbungBadgeIcon = () =>
     iconAnchor: [11, 11],
   });
 
-function MapSizeInvalidator() {
+function MapSizeInvalidator({
+  containerRef,
+  resizeKey,
+}: {
+  containerRef: RefObject<HTMLDivElement | null>;
+  resizeKey: string;
+}) {
   const map = useMap();
 
   useEffect(() => {
     const invalidate = () => map.invalidateSize();
-    const timeoutId = window.setTimeout(invalidate, 150);
+    const timeoutIds = [100, 400, 1000].map((delay) =>
+      window.setTimeout(invalidate, delay)
+    );
+    const container = containerRef.current;
+    const observer =
+      typeof ResizeObserver !== "undefined" && container
+        ? new ResizeObserver(invalidate)
+        : null;
+    observer?.observe(container as HTMLDivElement);
     window.addEventListener("resize", invalidate);
     return () => {
-      window.clearTimeout(timeoutId);
+      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      observer?.disconnect();
       window.removeEventListener("resize", invalidate);
     };
-  }, [map]);
+  }, [containerRef, map, resizeKey]);
 
   return null;
 }
@@ -253,6 +268,7 @@ export default function PotentialFieldView({
   const [hasUserSelectedKabupaten, setHasUserSelectedKabupaten] = useState(false);
   const [selectedPotential, setSelectedPotential] =
     useState<PotentialNewFieldPrediction | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
   const damIcon = useMemo(() => createDamBadgeIcon(), []);
   const embungIcon = useMemo(() => createEmbungBadgeIcon(), []);
 
@@ -462,6 +478,15 @@ export default function PotentialFieldView({
       : null;
   }, [activePotential, potentialWaterSources]);
 
+  const scrollToMap = () => {
+    if (window.matchMedia("(max-width: 1023px)").matches) {
+      mapContainerRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen lg:h-screen w-full bg-[#050505] text-white flex flex-col overflow-x-hidden lg:overflow-hidden">
       {/* TOP BAR */}
@@ -512,11 +537,11 @@ export default function PotentialFieldView({
       </header>
 
       {/* MAIN GRID SESUAI WIREFRAME: SIDEBAR KIRI + PETA KANAN BESAR */}
-      <div className="flex-1 flex flex-col md:flex-row min-h-0">
+      <div className="flex-1 flex flex-col lg:flex-row min-h-0 lg:overflow-hidden">
         {/* ============================================================
             KOLOM KIRI (Sesuai kotak atas & kotak tengah di wireframe)
            ============================================================ */}
-        <aside className="w-full md:w-[370px] xl:w-[400px] border-b md:border-b-0 md:border-r border-white/10 bg-[#07070a] p-4 flex flex-col gap-4 md:overflow-y-auto shrink-0">
+        <aside className="w-full lg:w-[370px] xl:w-[400px] border-b lg:border-b-0 lg:border-r border-white/10 bg-[#07070a] p-4 flex flex-col gap-4 lg:overflow-y-auto shrink-0">
           {/* KOTAK 1 (WIREFRAME ATAS): FILTER KABUPATEN */}
           <div className="bg-white/[0.03] border border-white/15 rounded-2xl p-4 space-y-2.5">
             <label className="block text-xs font-mono uppercase tracking-wider text-sky-400 font-bold">
@@ -527,6 +552,7 @@ export default function PotentialFieldView({
               onChange={(e) => {
                 setHasUserSelectedKabupaten(true);
                 setSelectedKabId(e.target.value);
+                window.setTimeout(scrollToMap, 0);
               }}
               className="w-full bg-[#0d0d12] border border-white/20 rounded-xl px-3 py-2 text-xs text-white font-medium focus:outline-none focus:border-pink-500"
             >
@@ -544,6 +570,13 @@ export default function PotentialFieldView({
                 </option>
               ))}
             </select>
+            <button
+              type="button"
+              onClick={scrollToMap}
+              className="w-full rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-[11px] font-mono font-bold text-cyan-200 lg:hidden"
+            >
+              {lang === "en" ? "View Spatial Map" : "Lihat Peta Spasial"}
+            </button>
           </div>
 
           {/* KOTAK 2 (WIREFRAME TENGAH): KETERANGAN LUAS SAWAH POTENSIAL DI KAB. TERSEBUT */}
@@ -709,7 +742,10 @@ export default function PotentialFieldView({
               <button
                 type="button"
                 key={field.id}
-                onClick={() => setSelectedPotential(field)}
+                onClick={() => {
+                  setSelectedPotential(field);
+                  window.setTimeout(scrollToMap, 0);
+                }}
                 className={`w-full rounded-xl border p-2.5 text-left transition-colors ${
                   selectedPotential?.id === field.id
                     ? "border-cyan-300 bg-cyan-500/15"
@@ -754,15 +790,22 @@ export default function PotentialFieldView({
         {/* ============================================================
             KOLOM KANAN BESAR (PETA 5 LAYER GABUNGAN SESUAI WIREFRAME)
            ============================================================ */}
-        <main className="flex-1 relative min-h-[400px] h-[55vh] md:h-full md:min-h-0">
+        <main
+          ref={mapContainerRef}
+          className="relative z-10 w-full h-[420px] min-h-[420px] shrink-0 lg:h-full lg:flex-1"
+        >
           <MapContainer
             center={[-7.15, 110.14]}
             zoom={8}
-            className="w-full h-full z-0"
+            className="w-full h-full min-h-[420px] z-0"
+            style={{ height: "100%", width: "100%", minHeight: "420px" }}
             zoomControl={false}
             preferCanvas={true}
           >
-            <MapSizeInvalidator />
+            <MapSizeInvalidator
+              containerRef={mapContainerRef}
+              resizeKey={effectiveSelectedKabId}
+            />
             <CameraBoundsUpdater
               selectedKab={selectedKab}
               selectedPotential={activePotential}

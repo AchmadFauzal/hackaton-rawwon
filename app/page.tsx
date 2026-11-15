@@ -579,7 +579,7 @@ export default function NasaHackathonDashboard() {
   };
 
   return (
-    <div className="relative flex flex-col w-full bg-[#050505] text-white font-sans lg:h-screen lg:overflow-hidden">
+    <div className="relative min-h-screen flex flex-col w-full bg-[#050505] text-white font-sans lg:h-screen lg:overflow-hidden">
       {/* Paksa agar di HP (< 1024px) scroll body tidak pernah terkunci oleh globals.css */}
       <style>{`
         @media (max-width: 1023px) {
