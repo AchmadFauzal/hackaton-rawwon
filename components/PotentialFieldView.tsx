@@ -180,16 +180,56 @@ function disablePathPointerEvents(layer: L.Layer) {
 
 const createDamBadgeIcon = () =>
   L.divIcon({
-    className: "custom-potential-dam-badge",
-    html: `<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#0284c7 0%,#2563eb 100%);border:2px solid #fff;box-shadow:0 0 12px rgba(14,165,233,.9);display:flex;align-items:center;justify-content:center;color:#fff;font-family:ui-monospace,SFMono-Regular,monospace;font-size:8px;font-weight:800;cursor:pointer;">DAM</div>`,
+    className: "custom-dam-badge",
+    html: `
+      <div style="
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+        border: 2px solid #ffffff;
+        box-shadow: 0 0 12px rgba(14, 165, 233, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        font-family: ui-monospace, SFMono-Regular, monospace;
+        font-size: 8px;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+      ">DAM</div>
+    `,
     iconSize: [28, 28],
     iconAnchor: [14, 14],
   });
 
 const createEmbungBadgeIcon = () =>
   L.divIcon({
-    className: "custom-potential-embung-badge",
-    html: `<div style="width:22px;height:22px;border-radius:5px;transform:rotate(45deg);background:linear-gradient(135deg,#d97706 0%,#f59e0b 100%);border:2px solid #fff;box-shadow:0 0 10px rgba(245,158,11,.85);display:flex;align-items:center;justify-content:center;cursor:pointer;"><span style="transform:rotate(-45deg);color:#fff;font-family:ui-monospace,SFMono-Regular,monospace;font-size:7px;font-weight:800;">EMB</span></div>`,
+    className: "custom-embung-badge",
+    html: `
+      <div style="
+        width: 22px;
+        height: 22px;
+        border-radius: 5px;
+        transform: rotate(45deg);
+        background: linear-gradient(135deg, #059669 0%, #0d9488 100%);
+        border: 2px solid #ffffff;
+        box-shadow: 0 0 10px rgba(16, 185, 129, 0.85);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+      ">
+        <span style="
+          transform: rotate(-45deg);
+          color: #ffffff;
+          font-family: ui-monospace, SFMono-Regular, monospace;
+          font-size: 7px;
+          font-weight: 800;
+        ">EMB</span>
+      </div>
+    `,
     iconSize: [22, 22],
     iconAnchor: [11, 11],
   });
@@ -508,7 +548,7 @@ export default function PotentialFieldView({
     }
     return filteredReservoirs.slice(0, 100);
   }, [filteredReservoirs, isMobile, selectedKab]);
-  const useCanvasReservoirs = isMobile || renderedReservoirs.length > 50;
+  const useCanvasReservoirs = selectedKabId === "ALL";
   const activePotential = selectedPotential
     ? filteredPotentialFields.find((field) => field.id === selectedPotential.id) || null
     : null;
