@@ -293,7 +293,7 @@ export default function NasaHackathonDashboard() {
             if (!response.ok) throw new Error("Gagal memuat batas kabupaten.");
             return response.json();
           }),
-          fetch("/data/kontur_jateng_slim.geojson")
+          fetch("/data/kontur_jawa_all.geojson", { cache: "no-store" })
             .then((response) => (response.ok ? response.json() : null))
             .catch(() => null),
         ]);

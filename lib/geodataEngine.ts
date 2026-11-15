@@ -69,6 +69,89 @@ export function normalizeKabName(name: string): string {
     .toLowerCase();
 }
 
+export function getContourFeatures(
+  contourGeoJson: any,
+  selectedKabupaten: string
+): any[] {
+  const features = Array.isArray(contourGeoJson?.features)
+    ? contourGeoJson.features
+    : [];
+  const normalizedKabupaten = normalizeKabName(selectedKabupaten);
+
+  const validFeatures = features.filter(
+    (feature: any) =>
+      feature?.geometry?.type === "LineString" ||
+      feature?.geometry?.type === "MultiLineString"
+  );
+
+  if (
+    !normalizedKabupaten ||
+    normalizedKabupaten === "all" ||
+    normalizedKabupaten === "pulau jawa"
+  ) {
+    return validFeatures;
+  }
+
+  return validFeatures.filter((feature: any) => {
+    const properties = feature?.properties || {};
+    return ["WADMKK", "WADMKK_RAW", "kab_kota"].some(
+      (key) =>
+        normalizeKabName(getPropFlexible(properties, [key])) ===
+        normalizedKabupaten
+    );
+  });
+}
+
+export function getVisibleContourFeatures(
+  contourGeoJson: any,
+  selectedKabupaten: string,
+  maxAllFeatures = 1200
+): any[] {
+  const features = getContourFeatures(contourGeoJson, selectedKabupaten);
+  const normalizedKabupaten = normalizeKabName(selectedKabupaten);
+  const isAllDistricts =
+    !normalizedKabupaten ||
+    normalizedKabupaten === "all" ||
+    normalizedKabupaten === "pulau jawa";
+
+  if (!isAllDistricts) return features;
+
+  const indexFeatures = features.filter((feature) => {
+    const elevation = Number(
+      getPropFlexible(feature?.properties || {}, ["ELEV", "KONTUR"])
+    );
+    return Number.isFinite(elevation) && elevation % 100 === 0;
+  });
+
+  if (indexFeatures.length <= maxAllFeatures) return indexFeatures;
+
+  return Array.from({ length: maxAllFeatures }, (_, index) => {
+    const sourceIndex = Math.floor(
+      (index * indexFeatures.length) / maxAllFeatures
+    );
+    return indexFeatures[sourceIndex];
+  });
+}
+
+export function getAverageContourElevation(
+  contourFeatures: any[]
+): number | null {
+  const elevations = contourFeatures
+    .map((feature) => {
+      const properties = feature?.properties || {};
+      const value = getPropFlexible(properties, ["ELEV", "KONTUR"]);
+      const elevation = Number(value);
+      return Number.isFinite(elevation) ? elevation : null;
+    })
+    .filter((elevation): elevation is number => elevation !== null);
+
+  if (elevations.length === 0) return null;
+  return Math.round(
+    elevations.reduce((total, elevation) => total + elevation, 0) /
+      elevations.length
+  );
+}
+
 export function buildPotentialNewFields(
   rawFeatures: any[],
   selectedKabupaten: string

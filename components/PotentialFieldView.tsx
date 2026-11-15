@@ -18,6 +18,9 @@ import L from "leaflet";
 import { Globe } from "lucide-react";
 import {
   buildPotentialNewFields,
+  getAverageContourElevation,
+  getContourFeatures,
+  getVisibleContourFeatures,
   getPropFlexible,
   haversineKm,
   normalizeKabName,
@@ -375,6 +378,10 @@ export default function PotentialFieldView({
   const damIcon = useMemo(() => createDamBadgeIcon(), []);
   const embungIcon = useMemo(() => createEmbungBadgeIcon(), []);
   const canvasRenderer = useMemo(() => L.canvas({ padding: 0.3 }), []);
+  const contourRenderer = useMemo(
+    () => L.canvas({ padding: 0.3, pane: "contour-pane" }),
+    []
+  );
 
   useEffect(() => {
     const updateViewport = () => setIsMobile(window.innerWidth < 768);
@@ -508,6 +515,31 @@ export default function PotentialFieldView({
       ),
     [potentialRawFeatures, selectedKab]
   );
+  const filteredContourFeatures = useMemo(
+    () =>
+      getContourFeatures(
+        konturGeoJson,
+        selectedKab?.nama || "all"
+      ),
+    [konturGeoJson, selectedKab]
+  );
+  const selectedKabupaten = selectedKab?.nama || "ALL";
+  const filteredContours = useMemo(
+    () =>
+      getVisibleContourFeatures(
+        konturGeoJson,
+        selectedKabupaten,
+        1200
+      ),
+    [konturGeoJson, selectedKabupaten]
+  );
+  const renderedKonturGeoJson = useMemo(() => {
+    if (!konturGeoJson) return null;
+    return {
+      ...konturGeoJson,
+      features: filteredContours,
+    };
+  }, [konturGeoJson, filteredContours]);
   const renderedSawah = useMemo(() => {
     if (!isMobile || selectedKab || filteredSawah.length <= 400) {
       return filteredSawah;
@@ -564,13 +596,7 @@ export default function PotentialFieldView({
   // Statistik Keterangan Luas Sawah Potensial di Kab. tersebut (sesuai wireframe kiri)
   const stats = useMemo(() => {
     const totalEksistingHa = filteredSawah.reduce((acc, s) => acc + s.luasHa, 0);
-    const avgElevasi =
-      filteredSawah.length > 0
-        ? Math.round(
-            filteredSawah.reduce((acc, s) => acc + s.elevasiMdpl, 0) /
-              filteredSawah.length
-          )
-        : 45;
+    const avgElevasi = getAverageContourElevation(filteredContourFeatures) ?? 0;
     const jumlahBendungan = filteredReservoirs.filter(
       (r) => String(r.properties?.kategori).toLowerCase() === "bendungan"
     ).length;
@@ -618,6 +644,7 @@ export default function PotentialFieldView({
     filteredSawah,
     filteredReservoirs,
     filteredPotentialFields,
+    filteredContourFeatures,
     potentialSummaryByKabupaten,
     selectedKab,
   ]);
@@ -997,18 +1024,34 @@ export default function PotentialFieldView({
             )}
 
             {/* 2. LAYER GARIS KONTUR SRTM */}
-            {layers.kontur && konturGeoJson && (
-              <GeoJSON
-                data={konturGeoJson}
-                interactive={false}
-                onEachFeature={(_feature, layer) => disablePathPointerEvents(layer)}
-                style={{
-                  color: "#f59e0b",
-                  weight: 0.9,
-                  opacity: 0.45,
-                  renderer: canvasRenderer,
-                }}
-              />
+            {layers.kontur && renderedKonturGeoJson && filteredContours.length > 0 && (
+              <Pane
+                name="contour-pane"
+                style={{ zIndex: 480, pointerEvents: "none" }}
+              >
+                <GeoJSON
+                  key={`contour-${selectedKabupaten}-${filteredContours.length}`}
+                  data={renderedKonturGeoJson}
+                  interactive={false}
+                  onEachFeature={(_feature, layer) => disablePathPointerEvents(layer)}
+                  style={(feature) => {
+                    const elevation = Number(
+                      getPropFlexible(feature?.properties || {}, [
+                        "ELEV",
+                        "KONTUR",
+                      ])
+                    );
+                    const isIndexContour =
+                      Number.isFinite(elevation) && elevation % 100 === 0;
+                    return {
+                      color: isIndexContour ? "#fbbf24" : "#f59e0b",
+                      weight: isIndexContour ? 1.5 : 1,
+                      opacity: isIndexContour ? 0.85 : 0.65,
+                      renderer: contourRenderer,
+                    };
+                  }}
+                />
+              </Pane>
             )}
 
             {/* 3 & 4. LAYER SAWAH EKSISTING + LC NILAI PIXEL */}
