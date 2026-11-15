@@ -3,6 +3,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
+import { buildFeatures } from "@/model/lib/ipFeatures";
+import { loadIP, predictBatch } from "@/model/lib/ipTfjs";
 import {
   Loader2,
   Droplets,
@@ -28,6 +30,7 @@ import {
   ComputedSawahPrediction,
   RealSawahFeature,
   KabupatenOption,
+  PlantingSeason,
 } from "@/lib/geodataEngine";
 
 const MapComponent = dynamic(() => import("@/components/map"), {
@@ -250,6 +253,7 @@ export default function NasaHackathonDashboard() {
   const [isDataLoading, setIsDataLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [realSawahList, setRealSawahList] = useState<RealSawahFeature[]>([]);
+  const [modelFasesByUid, setModelFasesByUid] = useState<Record<string, PlantingSeason>>({});
   const [reservoirs, setReservoirs] = useState<Record<string, unknown>[]>([]);
   const [kabupatenList, setKabupatenList] = useState<KabupatenOption[]>([]);
   const [batasKabGeoJson, setBatasKabGeoJson] = useState<Record<string, unknown> | null>(null);
@@ -257,6 +261,7 @@ export default function NasaHackathonDashboard() {
   const [activeView, setActiveView] = useState<"cycle" | "potential">("cycle");
 
   const mapSectionRef = useRef<HTMLDivElement | null>(null);
+  const modelRef = useRef<Awaited<ReturnType<typeof loadIP>> | null>(null);
 
   useEffect(() => {
     const fadeTimer = setTimeout(() => {
@@ -358,8 +363,19 @@ export default function NasaHackathonDashboard() {
     ? selectedMonthObj[lang].split(" - ")[1]
     : "November";
 
+  const getPredictedFase = (item: RealSawahFeature): PlantingSeason | undefined => {
+    return modelFasesByUid[item.id];
+  };
+
   const computedList = filteredSawah.map((item) =>
-    computeRealSawahPrediction(item, selectedMonth, selectedYear, mlRunCount, lang)
+    computeRealSawahPrediction(
+      item,
+      selectedMonth,
+      selectedYear,
+      mlRunCount,
+      lang,
+      getPredictedFase(item)
+    )
   );
 
   const selectedSawah: ComputedSawahPrediction | null = selectedSawahId
@@ -387,7 +403,14 @@ export default function NasaHackathonDashboard() {
   const primaryReservoir = selectedSawah?.sumberAirTerdekat ||
     computedList[0]?.sumberAirTerdekat || "Bendungan / Irigasi";
   const allComputedList = realSawahList.map((item) =>
-    computeRealSawahPrediction(item, selectedMonth, selectedYear, mlRunCount, lang)
+    computeRealSawahPrediction(
+      item,
+      selectedMonth,
+      selectedYear,
+      mlRunCount,
+      lang,
+      getPredictedFase(item)
+    )
   );
 
   if (activeView === "potential") {
@@ -405,11 +428,38 @@ export default function NasaHackathonDashboard() {
     );
   }
 
-  const handleRunMachineLearning = () => {
+  const handleRunMachineLearning = async () => {
     setIsRunningML(true);
     setSelectedSawahId(null);
 
-    setTimeout(() => {
+    try {
+      if (!modelRef.current) {
+        modelRef.current = await loadIP("/model");
+      }
+
+      const records = await fetch("/model/data_mentah.json").then((response) => {
+        if (!response.ok) throw new Error("Data Excel hasil export tidak ditemukan.");
+        return response.json();
+      });
+      const featureSet = buildFeatures(records, Number(selectedYear));
+      const probabilities = await predictBatch(
+        { ...modelRef.current, fitur: { features: featureSet.names } },
+        featureSet.petak.map((petak) => petak.x)
+      );
+      if (probabilities.length > 0) {
+        const predictedFases: Record<string, PlantingSeason> = {};
+        featureSet.petak.forEach((petak, index) => {
+          const scores = probabilities[index];
+          const modelClass = scores.reduce(
+            (best: number, score: number, classIndex: number) =>
+              score > scores[best] ? classIndex : best,
+            0
+          );
+          predictedFases[petak.uid] = modelClass as PlantingSeason;
+        });
+        setModelFasesByUid(predictedFases);
+      }
+
       setIsRunningML(false);
       setMlRunCount((prev) => prev + 1);
       const now = new Date();
@@ -423,7 +473,12 @@ export default function NasaHackathonDashboard() {
       if (typeof window !== "undefined" && window.innerWidth < 1024 && mapSectionRef.current) {
         mapSectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
       }
-    }, 900);
+    } catch (error) {
+      setIsRunningML(false);
+      const message = error instanceof Error ? error.message : "Model gagal dijalankan.";
+      setLoadError(`Gagal menjalankan model pola tanam: ${message}`);
+      console.error("Planting season model inference failed", error);
+    }
   };
 
   const renderTelemetryCard = (isMobileBottom: boolean) => {
