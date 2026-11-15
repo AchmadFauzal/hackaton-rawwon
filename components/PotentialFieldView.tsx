@@ -6,15 +6,20 @@ import {
   MapContainer,
   TileLayer,
   GeoJSON,
+  Pane,
   Marker,
   Popup,
   Polyline,
+  Tooltip,
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
 import { Globe } from "lucide-react";
 import {
   buildPotentialNewFields,
+  getPropFlexible,
+  haversineKm,
+  normalizeKabName,
   PotentialNewFieldPrediction,
 } from "@/lib/geodataEngine";
 type LatLngBounds = [[number, number], [number, number]];
@@ -41,18 +46,20 @@ interface KabupatenOption {
   bounds: LatLngBounds;
 }
 
-function getPropFlexible(
-  properties: Record<string, any>,
-  keys: string[],
-  fallback = ""
-) {
-  for (const key of keys) {
-    const value = properties[key];
-    if (value !== undefined && value !== null && String(value).trim() !== "") {
-      return String(value);
-    }
-  }
-  return fallback;
+interface PotentialSummary {
+  kabupaten: string;
+  provinsi: string;
+  candidate_zones: number;
+  total_new_ha: number;
+  avg_suitability_score: number;
+}
+
+interface NearestReservoir {
+  feature: any;
+  name: string;
+  type: string;
+  distanceKm: number;
+  position: [number, number];
 }
 
 interface PotentialFieldViewProps {
@@ -66,19 +73,62 @@ interface PotentialFieldViewProps {
   lang: "en" | "id";
 }
 
-const damSmallIcon = L.divIcon({
-  className: "",
-  html: `<div style="width:14px;height:14px;border-radius:50%;background:#0ea5e9;border:2px solid #fff;box-shadow:0 0 10px #38bdf8;"></div>`,
-  iconSize: [14, 14],
-  iconAnchor: [7, 7],
-});
+function renderPotentialZonePopup(
+  field: PotentialNewFieldPrediction,
+  waterSource: NearestReservoir | null | undefined,
+  lang: "en" | "id"
+) {
+  const eyebrow = `${field.kabupaten} • ${field.provinsi}`.toUpperCase();
+  const waterSourceLabel = waterSource
+    ? `${waterSource.type} ${waterSource.name} (±${waterSource.distanceKm} km)`
+    : `${field.distWaterKm} km`;
 
-const embungSmallIcon = L.divIcon({
-  className: "",
-  html: `<div style="width:12px;height:12px;border-radius:3px;transform:rotate(45deg);background:#10b981;border:2px solid #fff;box-shadow:0 0 8px #34d399;"></div>`,
-  iconSize: [12, 12],
-  iconAnchor: [6, 6],
-});
+  return (
+    <div className="min-w-[245px] text-zinc-900 font-sans p-0.5">
+      <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 font-bold">
+        {eyebrow}
+      </div>
+      <div className="text-sm font-extrabold text-zinc-900 mt-0.5 leading-snug">
+        {field.namaBlok}
+      </div>
+      <div className="mt-1.5 mb-2.5">
+        <span className="inline-block rounded bg-cyan-600 px-2 py-0.5 text-[10px] font-bold text-white">
+          {lang === "en" ? "SUITABILITY" : "KELAYAKAN"} {field.suitabilityScore}%
+        </span>
+      </div>
+      <div className="space-y-1 border-t border-zinc-200 pt-2 text-[11px]">
+        <div className="flex justify-between gap-3">
+          <span className="text-zinc-500">
+            {lang === "en" ? "Additional area:" : "Luas tambahan:"}
+          </span>
+          <span className="font-mono font-bold text-cyan-700">
+            +{field.luasHa.toLocaleString("id-ID")} Ha
+          </span>
+        </div>
+        <div className="flex justify-between gap-3">
+          <span className="text-zinc-500">
+            {lang === "en" ? "Classification:" : "Klasifikasi:"}
+          </span>
+          <span className="text-right font-semibold">{field.suitabilityTier}</span>
+        </div>
+        <div className="flex justify-between gap-3">
+          <span className="text-zinc-500">
+            {lang === "en" ? "Existing cover:" : "Tutupan lahan:"}
+          </span>
+          <span className="text-right font-semibold">{field.existingCover}</span>
+        </div>
+        <div className="flex justify-between gap-3">
+          <span className="text-zinc-500">
+            {lang === "en" ? "Water source:" : "Sumber aliran air:"}
+          </span>
+          <span className="text-right font-mono font-bold text-sky-600">
+            {waterSourceLabel}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const LC_PIXEL_COLORS: Record<number, string> = {
   1: "#10b981", // LC-1: Irigasi Teknis
@@ -87,23 +137,95 @@ const LC_PIXEL_COLORS: Record<number, string> = {
   4: "#ec4899", // LC-4: Tegalan / Konversi Potensial
 };
 
+function findNearestReservoir(
+  centroid: [number, number],
+  reservoirs: any[]
+): NearestReservoir | null {
+  let nearest: NearestReservoir | null = null;
+  for (const feature of reservoirs) {
+    const [lng, lat] = feature.geometry?.coordinates || [];
+    if (typeof lat !== "number" || typeof lng !== "number") continue;
+    const distanceKm = haversineKm(centroid[0], centroid[1], lat, lng);
+    if (!nearest || distanceKm < nearest.distanceKm) {
+      const properties = feature.properties || {};
+      const isDam = String(properties.kategori || "").toLowerCase() === "bendungan";
+      nearest = {
+        feature,
+        name: getPropFlexible(
+          properties,
+          ["NAMOBJ", "name", "nama_bangunan", "nama_bendungan", "nama_embung", "nama_infrastruktur", "nama"],
+          isDam ? "Bendungan" : "Embung"
+        ),
+        type: isDam ? "Bendungan" : "Embung",
+        distanceKm: Number(distanceKm.toFixed(1)),
+        position: [lat, lng],
+      };
+    }
+  }
+  return nearest;
+}
+
+const createDamBadgeIcon = () =>
+  L.divIcon({
+    className: "custom-potential-dam-badge",
+    html: `<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#0284c7 0%,#2563eb 100%);border:2px solid #fff;box-shadow:0 0 12px rgba(14,165,233,.9);display:flex;align-items:center;justify-content:center;color:#fff;font-family:ui-monospace,SFMono-Regular,monospace;font-size:8px;font-weight:800;cursor:pointer;">DAM</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+
+const createEmbungBadgeIcon = () =>
+  L.divIcon({
+    className: "custom-potential-embung-badge",
+    html: `<div style="width:22px;height:22px;border-radius:5px;transform:rotate(45deg);background:linear-gradient(135deg,#d97706 0%,#f59e0b 100%);border:2px solid #fff;box-shadow:0 0 10px rgba(245,158,11,.85);display:flex;align-items:center;justify-content:center;cursor:pointer;"><span style="transform:rotate(-45deg);color:#fff;font-family:ui-monospace,SFMono-Regular,monospace;font-size:7px;font-weight:800;">EMB</span></div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+  });
+
+function MapSizeInvalidator() {
+  const map = useMap();
+
+  useEffect(() => {
+    const invalidate = () => map.invalidateSize();
+    const timeoutId = window.setTimeout(invalidate, 150);
+    window.addEventListener("resize", invalidate);
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.removeEventListener("resize", invalidate);
+    };
+  }, [map]);
+
+  return null;
+}
+
 function CameraBoundsUpdater({
   selectedKab,
   selectedPotential,
+  potentialFields,
 }: {
   selectedKab: KabupatenOption | null;
   selectedPotential: PotentialNewFieldPrediction | null;
+  potentialFields: PotentialNewFieldPrediction[];
 }) {
   const map = useMap();
   useEffect(() => {
     if (selectedPotential) {
-      map.flyTo(selectedPotential.centroid, 13, { duration: 1.0 });
+      map.fitBounds(L.geoJSON(selectedPotential.geometry).getBounds(), {
+        padding: [24, 24],
+        maxZoom: 14,
+        duration: 1.0,
+      });
+    } else if (potentialFields.length > 0) {
+      const bounds = L.latLngBounds([]);
+      potentialFields.forEach((field) => {
+        bounds.extend(L.geoJSON(field.geometry).getBounds());
+      });
+      map.fitBounds(bounds, { padding: [24, 24], maxZoom: 12, duration: 1.0 });
     } else if (selectedKab?.bounds) {
       map.fitBounds(selectedKab.bounds, { padding: [24, 24], duration: 1.0 });
     } else {
       map.flyTo([-7.15, 110.14], 8, { duration: 1.0 });
     }
-  }, [selectedKab, selectedPotential, map]);
+  }, [selectedKab, selectedPotential, potentialFields, map]);
   return null;
 }
 
@@ -127,24 +249,40 @@ export default function PotentialFieldView({
     sigiWater: true,
   });
   const [potentialRawFeatures, setPotentialRawFeatures] = useState<any[]>([]);
+  const [potentialSummary, setPotentialSummary] = useState<PotentialSummary[]>([]);
+  const [hasUserSelectedKabupaten, setHasUserSelectedKabupaten] = useState(false);
   const [selectedPotential, setSelectedPotential] =
     useState<PotentialNewFieldPrediction | null>(null);
+  const damIcon = useMemo(() => createDamBadgeIcon(), []);
+  const embungIcon = useMemo(() => createEmbungBadgeIcon(), []);
 
   useEffect(() => {
     let isMounted = true;
 
-    fetch("/data/potential_new_fields.geojson")
-      .then((response) => {
-        if (!response.ok) throw new Error("Gagal memuat data potensi lahan baru.");
-        return response.json();
+    Promise.all([
+      fetch("/data/potential_new_fields.geojson"),
+      fetch("/data/potential_kab_summary.json"),
+    ])
+      .then(async ([fieldsResponse, summaryResponse]) => {
+        if (!fieldsResponse.ok || !summaryResponse.ok) {
+          throw new Error("Gagal memuat dataset potensi lahan baru.");
+        }
+        return Promise.all([fieldsResponse.json(), summaryResponse.json()]);
       })
-      .then((data) => {
+      .then(([fieldsData, summaryData]) => {
         if (isMounted) {
-          setPotentialRawFeatures(Array.isArray(data?.features) ? data.features : []);
+          setPotentialRawFeatures(
+            Array.isArray(fieldsData?.features) ? fieldsData.features : []
+          );
+          setPotentialSummary(
+            Array.isArray(summaryData?.by_kabupaten)
+              ? summaryData.by_kabupaten
+              : []
+          );
         }
       })
       .catch((error) => {
-        console.error("Error loading potential new fields:", error);
+        console.error("Error loading potential field datasets:", error);
       });
 
     return () => {
@@ -152,9 +290,45 @@ export default function PotentialFieldView({
     };
   }, []);
 
+  const potentialSummaryByKabupaten = useMemo(() => {
+    const lookup = new Map<string, PotentialSummary>();
+    potentialSummary.forEach((summary) => {
+      lookup.set(normalizeKabName(summary.kabupaten), summary);
+    });
+    return lookup;
+  }, [potentialSummary]);
+
+  const effectiveSelectedKabId = useMemo(() => {
+    if (selectedKabId !== "ALL" || hasUserSelectedKabupaten || !potentialSummary.length) {
+      return selectedKabId;
+    }
+    const defaultKab = kabupatenList.find(
+      (kabupaten) => normalizeKabName(kabupaten.nama) === "blitar"
+    );
+    const defaultSummary = defaultKab
+      ? potentialSummaryByKabupaten.get(normalizeKabName(defaultKab.nama))
+      : undefined;
+    if (!defaultKab || (defaultSummary && defaultSummary.candidate_zones > 0)) {
+      return selectedKabId;
+    }
+    return (
+      kabupatenList.find(
+        (kabupaten) =>
+          (potentialSummaryByKabupaten.get(normalizeKabName(kabupaten.nama))
+            ?.candidate_zones || 0) > 0
+      )?.id || selectedKabId
+    );
+  }, [
+    hasUserSelectedKabupaten,
+    kabupatenList,
+    potentialSummary.length,
+    potentialSummaryByKabupaten,
+    selectedKabId,
+  ]);
+
   const selectedKab = useMemo(
-    () => kabupatenList.find((k) => k.id === selectedKabId) || null,
-    [kabupatenList, selectedKabId]
+    () => kabupatenList.find((k) => k.id === effectiveSelectedKabId) || null,
+    [kabupatenList, effectiveSelectedKabId]
   );
 
   // Filter sawah & reservoir berdasarkan Kabupaten terpilih
@@ -201,20 +375,27 @@ export default function PotentialFieldView({
       buildPotentialNewFields(
         potentialRawFeatures,
         selectedKab?.nama || "all"
-      ).sort((a, b) => b.suitabilityScore - a.suitabilityScore),
+      ).sort(
+        (a, b) =>
+          b.suitabilityScore - a.suitabilityScore || b.luasHa - a.luasHa
+      ),
     [potentialRawFeatures, selectedKab]
   );
   const activePotential = selectedPotential
     ? filteredPotentialFields.find((field) => field.id === selectedPotential.id) || null
     : null;
 
+  const potentialWaterSources = useMemo(() => {
+    const lookup = new Map<string, NearestReservoir | null>();
+    filteredPotentialFields.forEach((field) => {
+      lookup.set(field.id, findNearestReservoir(field.centroid, filteredReservoirs));
+    });
+    return lookup;
+  }, [filteredPotentialFields, filteredReservoirs]);
+
   // Statistik Keterangan Luas Sawah Potensial di Kab. tersebut (sesuai wireframe kiri)
   const stats = useMemo(() => {
     const totalEksistingHa = filteredSawah.reduce((acc, s) => acc + s.luasHa, 0);
-    const totalPotensialHa = filteredSawah.reduce(
-      (acc, s) => acc + s.potensiPerluasanHa,
-      0
-    );
     const avgElevasi =
       filteredSawah.length > 0
         ? Math.round(
@@ -232,6 +413,10 @@ export default function PotentialFieldView({
       (acc, field) => acc + field.luasHa,
       0
     );
+    const selectedSummary = selectedKab
+      ? potentialSummaryByKabupaten.get(normalizeKabName(selectedKab.nama))
+      : null;
+    const totalPotensialHa = selectedSummary?.total_new_ha ?? totalPotensiBaruHa;
     const rataRataSkor = filteredPotentialFields.length
       ? Math.round(
           filteredPotentialFields.reduce(
@@ -248,7 +433,7 @@ export default function PotentialFieldView({
       totalPotensialHa: totalPotensialHa.toLocaleString("id-ID", {
         maximumFractionDigits: 1,
       }),
-      totalGabunganHa: (totalEksistingHa + totalPotensialHa).toLocaleString(
+      totalGabunganHa: (totalEksistingHa + totalPotensiBaruHa).toLocaleString(
         "id-ID",
         { maximumFractionDigits: 1 }
       ),
@@ -261,31 +446,21 @@ export default function PotentialFieldView({
       }),
       rataRataSkor,
     };
-  }, [filteredSawah, filteredReservoirs, filteredPotentialFields]);
+  }, [
+    filteredSawah,
+    filteredReservoirs,
+    filteredPotentialFields,
+    potentialSummaryByKabupaten,
+    selectedKab,
+  ]);
 
   const selectedPotentialWaterConnection = useMemo(() => {
     if (!activePotential) return null;
-    const [fieldLat, fieldLng] = activePotential.centroid;
-    let nearest: [number, number] | null = null;
-    let minDistance = Infinity;
-
-    for (const reservoir of filteredReservoirs) {
-      const [lng, lat] = reservoir.geometry?.coordinates || [];
-      if (typeof lat !== "number" || typeof lng !== "number") continue;
-      const distance = Math.hypot(lat - fieldLat, lng - fieldLng);
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearest = [lat, lng];
-      }
-    }
-
+    const nearest = potentialWaterSources.get(activePotential.id);
     return nearest
-      ? ([activePotential.centroid, nearest] as [
-          [number, number],
-          [number, number]
-        ])
+      ? ([activePotential.centroid, nearest.position] as [[number, number], [number, number]])
       : null;
-  }, [activePotential, filteredReservoirs]);
+  }, [activePotential, potentialWaterSources]);
 
   return (
     <div className="min-h-screen lg:h-screen w-full bg-[#050505] text-white flex flex-col overflow-x-hidden lg:overflow-hidden">
@@ -337,29 +512,35 @@ export default function PotentialFieldView({
       </header>
 
       {/* MAIN GRID SESUAI WIREFRAME: SIDEBAR KIRI + PETA KANAN BESAR */}
-      <div className="flex-1 flex flex-col lg:flex-row min-h-0">
+      <div className="flex-1 flex flex-col md:flex-row min-h-0">
         {/* ============================================================
             KOLOM KIRI (Sesuai kotak atas & kotak tengah di wireframe)
            ============================================================ */}
-        <aside className="w-full lg:w-[370px] xl:w-[400px] border-b lg:border-b-0 lg:border-r border-white/10 bg-[#07070a] p-4 flex flex-col gap-4 lg:overflow-y-auto shrink-0">
+        <aside className="w-full md:w-[370px] xl:w-[400px] border-b md:border-b-0 md:border-r border-white/10 bg-[#07070a] p-4 flex flex-col gap-4 md:overflow-y-auto shrink-0">
           {/* KOTAK 1 (WIREFRAME ATAS): FILTER KABUPATEN */}
           <div className="bg-white/[0.03] border border-white/15 rounded-2xl p-4 space-y-2.5">
             <label className="block text-xs font-mono uppercase tracking-wider text-sky-400 font-bold">
               {lang === "en" ? "1. District Filter (Kabupaten)" : "1. Filter Kabupaten"}
             </label>
             <select
-              value={selectedKabId}
-              onChange={(e) => setSelectedKabId(e.target.value)}
-              className="w-full bg-[#0d0d12] border border-white/20 rounded-xl px-3 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-pink-500"
+              value={effectiveSelectedKabId}
+              onChange={(e) => {
+                setHasUserSelectedKabupaten(true);
+                setSelectedKabId(e.target.value);
+              }}
+              className="w-full bg-[#0d0d12] border border-white/20 rounded-xl px-3 py-2 text-xs text-white font-medium focus:outline-none focus:border-pink-500"
             >
               <option value="ALL">
                 {lang === "en"
-                  ? "All Java Island Districts (Seluruh Jawa)"
-                  : "Seluruh Kabupaten Pulau Jawa"}
+                  ? "All Potential Districts (Semua Wilayah Potensial)"
+                  : "All Potential Districts (Semua Wilayah Potensial)"}
               </option>
               {kabupatenList.map((kab) => (
                 <option key={kab.id} value={kab.id}>
-                  {kab.nama} ({kab.provinsi})
+                  {kab.nama} ({kab.provinsi}) •{" "}
+                  {potentialSummaryByKabupaten.get(normalizeKabName(kab.nama))
+                    ?.candidate_zones || 0}{" "}
+                  zones
                 </option>
               ))}
             </select>
@@ -391,7 +572,9 @@ export default function PotentialFieldView({
 
               <div className="bg-black/40 border border-pink-500/30 rounded-xl p-3">
                 <div className="text-[10px] font-mono text-pink-300">
-                  {lang === "en" ? "Expansion Potential (LC)" : "Potensi Perluasan (LC)"}
+                  {lang === "en"
+                    ? "Validated Expansion Potential"
+                    : "Potensi Perluasan Layak"}
                 </div>
                 <div className="text-lg font-mono font-bold text-pink-400 mt-0.5">
                   +{stats.totalPotensialHa}{" "}
@@ -546,7 +729,12 @@ export default function PotentialFieldView({
                 </div>
                 <div className="mt-1 flex justify-between gap-2 font-mono text-[10px] text-zinc-300">
                   <span>
-                    {field.distWaterKm} km {lang === "en" ? "water" : "sumber air"}
+                    {(() => {
+                      const source = potentialWaterSources.get(field.id);
+                      return source
+                        ? `${source.type} ${source.name} (${source.distanceKm} km)`
+                        : `${field.distWaterKm} km ${lang === "en" ? "water" : "sumber air"}`;
+                    })()}
                   </span>
                   <span>+{field.luasHa} Ha</span>
                 </div>
@@ -566,7 +754,7 @@ export default function PotentialFieldView({
         {/* ============================================================
             KOLOM KANAN BESAR (PETA 5 LAYER GABUNGAN SESUAI WIREFRAME)
            ============================================================ */}
-        <main className="flex-1 relative min-h-[450px] lg:min-h-0">
+        <main className="flex-1 relative min-h-[400px] h-[55vh] md:h-full md:min-h-0">
           <MapContainer
             center={[-7.15, 110.14]}
             zoom={8}
@@ -574,14 +762,17 @@ export default function PotentialFieldView({
             zoomControl={false}
             preferCanvas={true}
           >
+            <MapSizeInvalidator />
             <CameraBoundsUpdater
               selectedKab={selectedKab}
               selectedPotential={activePotential}
+              potentialFields={filteredPotentialFields}
             />
             <TileLayer
               url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
               attribution="© Esri • SIGI PUPR • SRTM • Landsat LC"
             />
+            <Pane name="potential-popup-pane" style={{ zIndex: 900 }} />
 
             {/* 1. LAYER BATAS KABUPATEN */}
             {layers.batasKab && batasKabGeoJson && (
@@ -642,7 +833,7 @@ export default function PotentialFieldView({
                       click: () => setSelectedPotential(null),
                     }}
                   >
-                    <Popup className="terracorp-dark-popup">
+                    <Popup pane="potential-popup-pane" className="terracorp-dark-popup">
                       <div className="bg-[#09090d] text-white p-1 min-w-[200px] text-xs space-y-1">
                         <div className="font-bold text-sm">{sawah.namaBlok}</div>
                         <div className="text-zinc-400">{sawah.kabupaten}</div>
@@ -687,23 +878,43 @@ export default function PotentialFieldView({
               })}
 
             {/* 5. LAYER PREDIKSI LAHAN SAWAH BARU */}
-            {layers.potentialNew &&
-              filteredPotentialFields.map((field) => (
-                <GeoJSON
-                  key={`potential-new-${field.id}`}
-                  data={field.geometry}
-                  style={{
-                    fillColor: "#06b6d4",
-                    color: "#67e8f9",
-                    weight: activePotential?.id === field.id ? 3 : 1.5,
-                    fillOpacity: activePotential?.id === field.id ? 0.72 : 0.46,
-                    dashArray: "5 5",
-                  }}
-                  eventHandlers={{
-                    click: () => setSelectedPotential(field),
-                  }}
-                />
-              ))}
+            {layers.potentialNew && (
+              <Pane name="potential-fields-pane" style={{ zIndex: 650 }}>
+                {filteredPotentialFields.map((field) => (
+                  <GeoJSON
+                    key={`pot-${effectiveSelectedKabId}-${filteredPotentialFields.length}-${layers.potentialNew}-${field.id}`}
+                    data={field.geometry}
+                    style={{
+                      fillColor: "#06b6d4",
+                      fillOpacity: 0.55,
+                      color: "#22d3ee",
+                      weight: activePotential?.id === field.id ? 3 : 2.5,
+                      dashArray: "6 4",
+                    }}
+                    eventHandlers={{
+                      click: () => {
+                        setSelectedPotential(field);
+                      },
+                    }}
+                  >
+                    <Tooltip sticky>
+                      <strong>{field.namaBlok}</strong>
+                      <br />
+                      {field.kabupaten} • {field.luasHa.toLocaleString("id-ID")} Ha
+                      <br />
+                      {field.suitabilityScore}% • {field.suitabilityTier}
+                      <br />
+                      {field.existingCover} •{" "}
+                      {potentialWaterSources.get(field.id)
+                        ? `${potentialWaterSources.get(field.id)?.type} ${
+                            potentialWaterSources.get(field.id)?.name
+                          } (±${potentialWaterSources.get(field.id)?.distanceKm} km)`
+                        : `${field.distWaterKm} km water`}
+                    </Tooltip>
+                  </GeoJSON>
+                ))}
+              </Pane>
+            )}
 
             {selectedPotentialWaterConnection && (
               <Polyline
@@ -719,65 +930,52 @@ export default function PotentialFieldView({
 
             {activePotential && (
               <Popup
+                pane="potential-popup-pane"
                 key={`potential-popup-${activePotential.id}`}
                 position={activePotential.centroid}
                 eventHandlers={{
                   remove: () => setSelectedPotential(null),
                 }}
               >
-                <div className="min-w-[245px] text-zinc-900 font-sans p-0.5">
-                  <div className="text-[10px] font-mono uppercase tracking-wider text-cyan-700 font-bold">
-                    {activePotential.kabupaten} • {activePotential.provinsi}
-                  </div>
-                  <div className="text-sm font-extrabold text-zinc-900 mt-0.5 leading-snug">
-                    {activePotential.namaBlok}
-                  </div>
-                  <div className="mt-1.5 mb-2.5">
-                    <span className="inline-block rounded bg-cyan-600 px-2 py-0.5 text-[10px] font-bold text-white">
-                      {lang === "en" ? "SUITABILITY" : "KELAYAKAN"} {activePotential.suitabilityScore}%
-                    </span>
-                  </div>
-                  <div className="space-y-1 border-t border-zinc-200 pt-2 text-[11px]">
-                    <div className="flex justify-between gap-3">
-                      <span className="text-zinc-500">{lang === "en" ? "Additional area:" : "Luas tambahan:"}</span>
-                      <span className="font-mono font-bold text-cyan-700">+{activePotential.luasHa} Ha</span>
-                    </div>
-                    <div className="flex justify-between gap-3">
-                      <span className="text-zinc-500">{lang === "en" ? "Classification:" : "Klasifikasi:"}</span>
-                      <span className="text-right font-semibold">{activePotential.suitabilityTier}</span>
-                    </div>
-                    <div className="flex justify-between gap-3">
-                      <span className="text-zinc-500">{lang === "en" ? "Existing cover:" : "Tutupan saat ini:"}</span>
-                      <span className="text-right font-semibold">{activePotential.existingCover}</span>
-                    </div>
-                    <div className="flex justify-between gap-3">
-                      <span className="text-zinc-500">{lang === "en" ? "Water distance:" : "Jarak sumber air:"}</span>
-                      <span className="font-mono font-bold text-sky-600">{activePotential.distWaterKm} km</span>
-                    </div>
-                  </div>
-                </div>
+                {renderPotentialZonePopup(
+                  activePotential,
+                  potentialWaterSources.get(activePotential.id),
+                  lang
+                )}
               </Popup>
             )}
 
             {/* 6. LAYER BENDUNGAN & EMBUNG (SIGI) */}
-            {layers.sigiWater &&
-              filteredReservoirs.map((feat, idx) => {
+            {layers.sigiWater && (
+              <Pane name="reservoirs-top-pane" style={{ zIndex: 750 }}>
+              {filteredReservoirs.map((feat, idx) => {
                 const [lng, lat] = feat.geometry.coordinates;
                 const props = feat.properties || {};
                 const isDam =
                   String(props.kategori || "").toLowerCase() === "bendungan";
                 const nama = getPropFlexible(
                   props,
-                  ["nama_bendungan", "nama_embung", "nama_infrastruktur", "nama", "namobj"],
+                  ["NAMOBJ", "name", "nama_bangunan", "nama_bendungan", "nama_embung", "nama_infrastruktur", "nama"],
                   isDam ? "Bendungan" : "Embung"
+                );
+                const status = getPropFlexible(
+                  props,
+                  ["status_infrastruktur", "kondisi_bangunan", "status"],
+                  "Tidak tersedia"
+                );
+                const capacity = getPropFlexible(
+                  props,
+                  ["kapasitas", "kapasitas_tampung", "teknis_volume_tampung_total_m3"],
+                  "Tidak tersedia"
                 );
                 return (
                   <Marker
                     key={`p2-res-${idx}-${lat}-${lng}`}
                     position={[lat, lng]}
-                    icon={isDam ? damSmallIcon : embungSmallIcon}
+                    icon={isDam ? damIcon : embungIcon}
                   >
-                    <Popup className="terracorp-dark-popup">
+                    <Tooltip>{nama}</Tooltip>
+                    <Popup pane="potential-popup-pane" className="terracorp-dark-popup">
                       <div className="bg-[#09090d] text-white p-1 text-xs">
                         <div className="font-mono text-[10px] text-sky-400 uppercase font-bold">
                           {isDam
@@ -789,11 +987,15 @@ export default function PotentialFieldView({
                               : "EMBUNG"}
                         </div>
                         <div className="font-bold text-sm">{nama}</div>
+                        <div className="text-zinc-400">Status: {status}</div>
+                        <div className="text-zinc-400">Kapasitas: {capacity}</div>
                       </div>
                     </Popup>
                   </Marker>
                 );
               })}
+              </Pane>
+            )}
           </MapContainer>
         </main>
       </div>

@@ -59,6 +59,14 @@ export interface PotentialNewFieldPrediction {
   distWaterKm: number;
   centroid: [number, number];
   geometry: any;
+  properties: Record<string, any>;
+}
+
+export function normalizeKabName(name: string): string {
+  return String(name || "")
+    .replace(/^(kabupaten|kab\.?|kota)\s+/i, "")
+    .trim()
+    .toLowerCase();
 }
 
 export function buildPotentialNewFields(
@@ -67,20 +75,16 @@ export function buildPotentialNewFields(
 ): PotentialNewFieldPrediction[] {
   if (!Array.isArray(rawFeatures)) return [];
 
-  const normFilter = selectedKabupaten
-    .toLowerCase()
-    .replace(/^(kabupaten|kab\.?|kota)\s+/i, "")
-    .trim();
+  const normFilter = normalizeKabName(selectedKabupaten);
 
   return rawFeatures
     .filter((feat) => {
       if (!feat?.geometry) return false;
       if (!normFilter || normFilter === "all" || normFilter === "pulau jawa") return true;
-      const kab = String(feat.properties?.WADMKK || "")
-        .toLowerCase()
-        .replace(/^(kabupaten|kab\.?|kota)\s+/i, "")
-        .trim();
-      return kab.includes(normFilter) || normFilter.includes(kab);
+      const properties = feat.properties || {};
+      return [properties.WADMKK, properties.WADMKK_RAW]
+        .filter((name) => name !== undefined && name !== null)
+        .some((name) => normalizeKabName(String(name)) === normFilter);
     })
     .map((feat, idx) => {
       const p = feat.properties || {};
@@ -118,6 +122,7 @@ export function buildPotentialNewFields(
         distWaterKm: Number(p.DIST_WATER_KM || 4.2),
         centroid: [cLat, cLng],
         geometry: feat.geometry,
+        properties: p,
       };
     });
 }

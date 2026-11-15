@@ -7,6 +7,7 @@ import {
   TileLayer,
   GeoJSON,
   Marker,
+  Pane,
   Popup,
   Polyline,
   ZoomControl,
@@ -432,6 +433,7 @@ export default function TerraCropMap({
         )}
 
         {/* LAYER MARKER BENDUNGAN (DAM) & EMBUNG (EMB) KHUSUS PULAU JAWA */}
+        <Pane name="reservoirs-top-pane" style={{ zIndex: 750 }}>
         {javaReservoirs.map((feat, idx) => {
           const [lng, lat] = feat.geometry.coordinates;
           const props = feat.properties || {};
@@ -506,6 +508,7 @@ export default function TerraCropMap({
             </Marker>
           );
         })}
+        </Pane>
       </MapContainer>
     </div>
   );

@@ -1,0 +1,581 @@
+{
+  "total_zones": 20563,
+  "total_new_ha": 148883.76,
+  "avg_score": 85.0,
+  "by_kabupaten": [
+    {
+      "kabupaten": "Gunungkidul",
+      "provinsi": "Daerah Istimewa Yogyakarta",
+      "candidate_zones": 3862,
+      "total_new_ha": 14845.32,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Malang",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 293,
+      "total_new_ha": 8985.24,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Tulungagung",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 471,
+      "total_new_ha": 6985.08,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Trenggalek",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 433,
+      "total_new_ha": 5684.04,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Cilacap",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 561,
+      "total_new_ha": 5439.6,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Ciamis",
+      "provinsi": "Jawa Barat",
+      "candidate_zones": 110,
+      "total_new_ha": 5409.36,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Blitar",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 359,
+      "total_new_ha": 5383.08,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Bogor",
+      "provinsi": "Jawa Barat",
+      "candidate_zones": 287,
+      "total_new_ha": 5083.92,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Majalengka",
+      "provinsi": "Jawa Barat",
+      "candidate_zones": 254,
+      "total_new_ha": 4829.76,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Kediri",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 364,
+      "total_new_ha": 4743.0,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Sleman",
+      "provinsi": "Daerah Istimewa Yogyakarta",
+      "candidate_zones": 554,
+      "total_new_ha": 4343.76,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Tasikmalaya",
+      "provinsi": "Jawa Barat",
+      "candidate_zones": 17,
+      "total_new_ha": 4070.88,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Kuningan",
+      "provinsi": "Jawa Barat",
+      "candidate_zones": 375,
+      "total_new_ha": 4008.6,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Nganjuk",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 616,
+      "total_new_ha": 3943.8,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Magelang",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 329,
+      "total_new_ha": 3923.64,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Banyumas",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 429,
+      "total_new_ha": 3488.4,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Sumenep",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 371,
+      "total_new_ha": 2441.16,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Sampang",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 557,
+      "total_new_ha": 2342.16,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Pangandaran",
+      "provinsi": "Jawa Barat",
+      "candidate_zones": 98,
+      "total_new_ha": 2328.84,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Wonogiri",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 843,
+      "total_new_ha": 2188.8,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Boyolali",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 400,
+      "total_new_ha": 2176.2,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Pacitan",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 410,
+      "total_new_ha": 2055.6,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Semarang",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 283,
+      "total_new_ha": 1969.92,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Blora",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 577,
+      "total_new_ha": 1865.88,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Sragen",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 618,
+      "total_new_ha": 1835.28,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Bandung Barat",
+      "provinsi": "Jawa Barat",
+      "candidate_zones": 63,
+      "total_new_ha": 1727.64,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Bangkalan",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 414,
+      "total_new_ha": 1656.36,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Karanganyar",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 303,
+      "total_new_ha": 1540.8,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Rembang",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 275,
+      "total_new_ha": 1409.76,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Pamekasan",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 479,
+      "total_new_ha": 1349.64,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Bandung",
+      "provinsi": "Jawa Barat",
+      "candidate_zones": 133,
+      "total_new_ha": 1323.72,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Cirebon",
+      "provinsi": "Jawa Barat",
+      "candidate_zones": 214,
+      "total_new_ha": 1303.56,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Purwakarta",
+      "provinsi": "Jawa Barat",
+      "candidate_zones": 58,
+      "total_new_ha": 1262.52,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Wonosobo",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 92,
+      "total_new_ha": 1207.8,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Serang",
+      "provinsi": "Banten",
+      "candidate_zones": 25,
+      "total_new_ha": 1167.12,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Pandeglang",
+      "provinsi": "Banten",
+      "candidate_zones": 81,
+      "total_new_ha": 1163.16,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Pati",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 231,
+      "total_new_ha": 1136.16,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Sumedang",
+      "provinsi": "Jawa Barat",
+      "candidate_zones": 133,
+      "total_new_ha": 1117.08,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Bojonegoro",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 353,
+      "total_new_ha": 1060.56,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Pasuruan",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 268,
+      "total_new_ha": 1043.28,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Lebak",
+      "provinsi": "Banten",
+      "candidate_zones": 14,
+      "total_new_ha": 1012.32,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Kulon Progo",
+      "provinsi": "Daerah Istimewa Yogyakarta",
+      "candidate_zones": 163,
+      "total_new_ha": 934.92,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Banyuwangi",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 141,
+      "total_new_ha": 882.72,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Kota Semarang",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 120,
+      "total_new_ha": 877.32,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Probolinggo",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 181,
+      "total_new_ha": 849.24,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Subang",
+      "provinsi": "Jawa Barat",
+      "candidate_zones": 57,
+      "total_new_ha": 828.0,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Ngawi",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 260,
+      "total_new_ha": 804.24,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Grobogan",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 302,
+      "total_new_ha": 752.76,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Lumajang",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 21,
+      "total_new_ha": 735.12,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Ponorogo",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 157,
+      "total_new_ha": 703.44,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Madiun",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 200,
+      "total_new_ha": 683.64,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Temanggung",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 77,
+      "total_new_ha": 679.32,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Karawang",
+      "provinsi": "Jawa Barat",
+      "candidate_zones": 68,
+      "total_new_ha": 671.4,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Jombang",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 186,
+      "total_new_ha": 666.36,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Bantul",
+      "provinsi": "Daerah Istimewa Yogyakarta",
+      "candidate_zones": 151,
+      "total_new_ha": 659.52,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Pekalongan",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 69,
+      "total_new_ha": 645.12,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Purworejo",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 11,
+      "total_new_ha": 611.28,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Brebes",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 179,
+      "total_new_ha": 587.16,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Kebumen",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 79,
+      "total_new_ha": 550.08,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Kota Cilegon",
+      "provinsi": "Banten",
+      "candidate_zones": 111,
+      "total_new_ha": 528.48,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Cianjur",
+      "provinsi": "Jawa Barat",
+      "candidate_zones": 103,
+      "total_new_ha": 429.84,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Magetan",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 218,
+      "total_new_ha": 429.84,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Sukoharjo",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 164,
+      "total_new_ha": 398.16,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Tegal",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 193,
+      "total_new_ha": 390.24,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Klaten",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 108,
+      "total_new_ha": 368.64,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Indramayu",
+      "provinsi": "Jawa Barat",
+      "candidate_zones": 123,
+      "total_new_ha": 354.96,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Kota Banjar",
+      "provinsi": "Jawa Barat",
+      "candidate_zones": 36,
+      "total_new_ha": 350.28,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Banjarnegara",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 44,
+      "total_new_ha": 298.8,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Bekasi",
+      "provinsi": "Jawa Barat",
+      "candidate_zones": 103,
+      "total_new_ha": 297.36,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Lamongan",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 110,
+      "total_new_ha": 256.32,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Situbondo",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 36,
+      "total_new_ha": 189.72,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Kudus",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 51,
+      "total_new_ha": 148.32,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Kota Kediri",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 33,
+      "total_new_ha": 143.28,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Kota Salatiga",
+      "provinsi": "Jawa Tengah",
+      "candidate_zones": 23,
+      "total_new_ha": 132.84,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Bondowoso",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 27,
+      "total_new_ha": 59.04,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Tuban",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 10,
+      "total_new_ha": 57.24,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Kota Tangerang Selatan",
+      "provinsi": "Banten",
+      "candidate_zones": 14,
+      "total_new_ha": 26.64,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Kota Bandung",
+      "provinsi": "Jawa Barat",
+      "candidate_zones": 11,
+      "total_new_ha": 23.04,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Gresik",
+      "provinsi": "Jawa Timur",
+      "candidate_zones": 7,
+      "total_new_ha": 11.88,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Kota Cirebon",
+      "provinsi": "Jawa Barat",
+      "candidate_zones": 3,
+      "total_new_ha": 6.12,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Kota Yogyakarta",
+      "provinsi": "Daerah Istimewa Yogyakarta",
+      "candidate_zones": 5,
+      "total_new_ha": 6.12,
+      "avg_suitability_score": 85.0
+    },
+    {
+      "kabupaten": "Kota Serang",
+      "provinsi": "Banten",
+      "candidate_zones": 1,
+      "total_new_ha": 2.16,
+      "avg_suitability_score": 85.0
+    }
+  ]
+}
