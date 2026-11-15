@@ -21,8 +21,17 @@ export interface RealSawahFeature {
   properties: Record<string, any>;
 }
 
+export type PlantingSeason = 0 | 1 | 2 | 3 | 4;
+
+export interface PlantingSeasonPrediction {
+  uid: string;
+  year: string;
+  ipClass: string;
+  faseTanam: PlantingSeason;
+}
+
 export interface ComputedSawahPrediction extends RealSawahFeature {
-  faseTanam: 0 | 1 | 2 | 3 | 4;
+  faseTanam: PlantingSeason;
   faseShortBadge: string;
   faseTitle: string;
   kelembabanTanah: number;
@@ -454,7 +463,8 @@ export function computeRealSawahPrediction(
   selectedMonth: number,
   selectedYear: string,
   mlRunCount: number,
-  lang: "en" | "id"
+  lang: "en" | "id",
+  predictedFaseTanam?: PlantingSeason
 ): ComputedSawahPrediction {
   // Curah hujan bulanan GPM (mm)
   const monthlyRainTable: Record<number, number> = {
@@ -477,16 +487,16 @@ export function computeRealSawahPrediction(
   );
 
   // Klasifikasi Masa Tanam (PS-1, PS-2, PS-3, PS-4, atau Fallow) sesuai legenda screenshot
-  let faseTanam: 0 | 1 | 2 | 3 | 4 = 1;
-  if (kelembabanTanah < 34 || sawah.jarakDamKm > 25) {
+  let faseTanam: PlantingSeason = predictedFaseTanam ?? 1;
+  if (predictedFaseTanam === undefined && (kelembabanTanah < 34 || sawah.jarakDamKm > 25)) {
     faseTanam = 0; // Non-Planting / Fallow
-  } else if (kelembabanTanah >= 72 && sawah.jarakDamKm <= 12) {
+  } else if (predictedFaseTanam === undefined && kelembabanTanah >= 72 && sawah.jarakDamKm <= 12) {
     faseTanam = 1; // Planting Season 1 (PS-1)
-  } else if (kelembabanTanah >= 58 && sawah.jarakDamKm <= 16) {
+  } else if (predictedFaseTanam === undefined && kelembabanTanah >= 58 && sawah.jarakDamKm <= 16) {
     faseTanam = 2; // Planting Season 2 (PS-2)
-  } else if (kelembabanTanah >= 44) {
+  } else if (predictedFaseTanam === undefined && kelembabanTanah >= 44) {
     faseTanam = 3; // Planting Season 3 (PS-3)
-  } else {
+  } else if (predictedFaseTanam === undefined) {
     faseTanam = sawah.jarakDamKm <= 4 ? 4 : 0; // PS-4 atau Fallow
   }
 
