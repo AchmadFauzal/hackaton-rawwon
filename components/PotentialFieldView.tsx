@@ -169,10 +169,16 @@ function findNearestReservoir(
   return nearest;
 }
 
+function getPathElement(layer: L.Layer): SVGElement | null {
+  const getElement = (layer as L.Path).getElement;
+  return typeof getElement === "function"
+    ? (getElement.call(layer) as SVGElement | null)
+    : null;
+}
+
 function disablePathPointerEvents(layer: L.Layer) {
-  const path = layer as L.Path;
   const apply = () => {
-    (path.getElement() as SVGElement | null)?.style.setProperty(
+    getPathElement(layer)?.style.setProperty(
       "pointer-events",
       "none"
     );
@@ -1149,7 +1155,7 @@ export default function PotentialFieldView({
                       mouseover: () => {
                         pathLayer.bringToFront();
                         pathLayer.setStyle({ weight: 3 });
-                        (pathLayer.getElement() as SVGElement | null)?.style.setProperty(
+                        getPathElement(pathLayer)?.style.setProperty(
                           "cursor",
                           "pointer"
                         );
@@ -1158,7 +1164,7 @@ export default function PotentialFieldView({
                         pathLayer.setStyle({
                           weight: activePotential?.id === field.id ? 3 : 2.5,
                         });
-                        (pathLayer.getElement() as SVGElement | null)?.style.setProperty(
+                        getPathElement(pathLayer)?.style.setProperty(
                           "cursor",
                           "default"
                         );
