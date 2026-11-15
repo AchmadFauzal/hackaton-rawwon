@@ -8,6 +8,7 @@ import {
   GeoJSON,
   Pane,
   Marker,
+  CircleMarker,
   Popup,
   Polyline,
   Tooltip,
@@ -130,6 +131,66 @@ function renderPotentialZonePopup(
   );
 }
 
+function escapePopupHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;",
+    };
+    return entities[character];
+  });
+}
+
+function buildPopupHtml(
+  field: PotentialNewFieldPrediction,
+  waterSource: NearestReservoir | null | undefined,
+  lang: "en" | "id"
+) {
+  const eyebrow = escapePopupHtml(
+    `${field.kabupaten} • ${field.provinsi}`.toUpperCase()
+  );
+  const waterSourceLabel = escapePopupHtml(
+    waterSource
+      ? `${waterSource.type} ${waterSource.name} (±${waterSource.distanceKm} km)`
+      : `${field.distWaterKm} km`
+  );
+  const labels =
+    lang === "en"
+      ? {
+          area: "Additional area:",
+          classification: "Classification:",
+          cover: "Existing cover:",
+          water: "Water source:",
+          score: "SUITABILITY",
+        }
+      : {
+          area: "Luas tambahan:",
+          classification: "Klasifikasi:",
+          cover: "Tutupan lahan:",
+          water: "Sumber aliran air:",
+          score: "KELAYAKAN",
+        };
+
+  return `
+    <div class="min-w-[245px] text-zinc-900 font-sans p-0.5">
+      <div class="text-[10px] font-mono uppercase tracking-wider text-zinc-500 font-bold">${eyebrow}</div>
+      <div class="text-sm font-extrabold text-zinc-900 mt-0.5 leading-snug">${escapePopupHtml(field.namaBlok)}</div>
+      <div class="mt-1.5 mb-2.5">
+        <span class="inline-block rounded bg-cyan-600 px-2 py-0.5 text-[10px] font-bold text-white">${labels.score} ${field.suitabilityScore}%</span>
+      </div>
+      <div class="space-y-1 border-t border-zinc-200 pt-2 text-[11px]">
+        <div class="flex justify-between gap-3"><span class="text-zinc-500">${labels.area}</span><span class="font-mono font-bold text-cyan-700">+${field.luasHa.toLocaleString("id-ID")} Ha</span></div>
+        <div class="flex justify-between gap-3"><span class="text-zinc-500">${labels.classification}</span><span class="text-right font-semibold">${escapePopupHtml(field.suitabilityTier)}</span></div>
+        <div class="flex justify-between gap-3"><span class="text-zinc-500">${labels.cover}</span><span class="text-right font-semibold">${escapePopupHtml(field.existingCover)}</span></div>
+        <div class="flex justify-between gap-3"><span class="text-zinc-500">${labels.water}</span><span class="text-right font-mono font-bold text-sky-600">${waterSourceLabel}</span></div>
+      </div>
+    </div>
+  `;
+}
+
 const LC_PIXEL_COLORS: Record<number, string> = {
   1: "#10b981", // LC-1: Irigasi Teknis
   2: "#38bdf8", // LC-2: Tadah Hujan
@@ -163,6 +224,18 @@ function findNearestReservoir(
     }
   }
   return nearest;
+}
+
+function disablePathPointerEvents(layer: L.Layer) {
+  const path = layer as L.Path;
+  const apply = () => {
+    (path.getElement() as SVGElement | null)?.style.setProperty(
+      "pointer-events",
+      "none"
+    );
+  };
+  apply();
+  layer.on("add", apply);
 }
 
 const createDamBadgeIcon = () =>
@@ -210,6 +283,48 @@ function MapSizeInvalidator({
   }, [containerRef, map, resizeKey]);
 
   return null;
+}
+
+function PotentialZonePopup({
+  field,
+  position,
+  waterSource,
+  lang,
+  onRemove,
+}: {
+  field: PotentialNewFieldPrediction;
+  position: [number, number];
+  waterSource: NearestReservoir | null | undefined;
+  lang: "en" | "id";
+  onRemove: () => void;
+}) {
+  const map = useMap();
+  const popupRef = useRef<L.Popup | null>(null);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      const popup = popupRef.current;
+      if (popup && !map.hasLayer(popup)) {
+        popup.openOn(map);
+      }
+    }, 50);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [field.id, map, position]);
+
+  return (
+    <Popup
+      ref={popupRef}
+      key={`popup-${field.namaBlok}-${position[0]}-${position[1]}`}
+      position={position}
+      pane="popupPane"
+      maxWidth={320}
+      autoPan={true}
+      eventHandlers={{ remove: onRemove }}
+    >
+      {renderPotentialZonePopup(field, waterSource, lang)}
+    </Popup>
+  );
 }
 
 function CameraBoundsUpdater({
@@ -268,9 +383,25 @@ export default function PotentialFieldView({
   const [hasUserSelectedKabupaten, setHasUserSelectedKabupaten] = useState(false);
   const [selectedPotential, setSelectedPotential] =
     useState<PotentialNewFieldPrediction | null>(null);
+  const [popupLatLng, setPopupLatLng] = useState<[number, number] | null>(null);
+  const [popupMode, setPopupMode] = useState<"sidebar" | "map">("sidebar");
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== "undefined" && window.innerWidth < 768
+  );
   const damIcon = useMemo(() => createDamBadgeIcon(), []);
   const embungIcon = useMemo(() => createEmbungBadgeIcon(), []);
+  const canvasRenderer = useMemo(() => L.canvas({ padding: 0.3 }), []);
+  const potentialSvgRenderer = useMemo(
+    () => L.svg({ padding: 0.3, pane: "potential-fields-pane" }),
+    []
+  );
+
+  useEffect(() => {
+    const updateViewport = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -374,14 +505,15 @@ export default function PotentialFieldView({
         return lat >= -9 && lat <= -5.5 && lng >= 105 && lng <= 115;
       });
     }
-    const [[minLat, minLng], [maxLat, maxLng]] = selectedKab.bounds;
     return reservoirs.filter((r) => {
       const [lng, lat] = r.geometry?.coordinates || [];
+      const [[minLat, minLng], [maxLat, maxLng]] = selectedKab.bounds;
+      const centerLat = (minLat + maxLat) / 2;
+      const centerLng = (minLng + maxLng) / 2;
       return (
-        lat >= minLat - 0.15 &&
-        lat <= maxLat + 0.15 &&
-        lng >= minLng - 0.15 &&
-        lng <= maxLng + 0.15
+        typeof lat === "number" &&
+        typeof lng === "number" &&
+        haversineKm(centerLat, centerLng, lat, lng) <= 35
       );
     });
   }, [reservoirs, selectedKab]);
@@ -397,17 +529,38 @@ export default function PotentialFieldView({
       ),
     [potentialRawFeatures, selectedKab]
   );
+  const renderedSawah = useMemo(() => {
+    if (!isMobile || selectedKab || filteredSawah.length <= 400) {
+      return filteredSawah;
+    }
+    return [...filteredSawah]
+      .sort((a, b) => b.luasHa - a.luasHa || b.potensiPerluasanHa - a.potensiPerluasanHa)
+      .slice(0, 400);
+  }, [filteredSawah, isMobile, selectedKab]);
+  const renderedPotentialFields = useMemo(() => {
+    if (!isMobile || selectedKab || filteredPotentialFields.length <= 400) {
+      return filteredPotentialFields;
+    }
+    return filteredPotentialFields.slice(0, 400);
+  }, [filteredPotentialFields, isMobile, selectedKab]);
+  const renderedReservoirs = useMemo(() => {
+    if (!isMobile || selectedKab || filteredReservoirs.length <= 100) {
+      return filteredReservoirs;
+    }
+    return filteredReservoirs.slice(0, 100);
+  }, [filteredReservoirs, isMobile, selectedKab]);
+  const useCanvasReservoirs = isMobile || renderedReservoirs.length > 50;
   const activePotential = selectedPotential
     ? filteredPotentialFields.find((field) => field.id === selectedPotential.id) || null
     : null;
 
   const potentialWaterSources = useMemo(() => {
     const lookup = new Map<string, NearestReservoir | null>();
-    filteredPotentialFields.forEach((field) => {
+    renderedPotentialFields.forEach((field) => {
       lookup.set(field.id, findNearestReservoir(field.centroid, filteredReservoirs));
     });
     return lookup;
-  }, [filteredPotentialFields, filteredReservoirs]);
+  }, [renderedPotentialFields, filteredReservoirs]);
 
   // Statistik Keterangan Luas Sawah Potensial di Kab. tersebut (sesuai wireframe kiri)
   const stats = useMemo(() => {
@@ -537,11 +690,11 @@ export default function PotentialFieldView({
       </header>
 
       {/* MAIN GRID SESUAI WIREFRAME: SIDEBAR KIRI + PETA KANAN BESAR */}
-      <div className="flex-1 flex flex-col lg:flex-row min-h-0 lg:overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row min-h-0 lg:overflow-hidden p-3 sm:p-4 lg:p-5 gap-4">
         {/* ============================================================
             KOLOM KIRI (Sesuai kotak atas & kotak tengah di wireframe)
            ============================================================ */}
-        <aside className="w-full lg:w-[370px] xl:w-[400px] border-b lg:border-b-0 lg:border-r border-white/10 bg-[#07070a] p-4 flex flex-col gap-4 lg:overflow-y-auto shrink-0">
+        <aside className="w-full lg:w-[370px] xl:w-[400px] rounded-xl border border-white/10 bg-[#07070a] p-4 flex flex-col gap-4 lg:overflow-y-auto shrink-0">
           {/* KOTAK 1 (WIREFRAME ATAS): FILTER KABUPATEN */}
           <div className="bg-white/[0.03] border border-white/15 rounded-2xl p-4 space-y-2.5">
             <label className="block text-xs font-mono uppercase tracking-wider text-sky-400 font-bold">
@@ -744,6 +897,8 @@ export default function PotentialFieldView({
                 key={field.id}
                 onClick={() => {
                   setSelectedPotential(field);
+                  setPopupMode("sidebar");
+                  setPopupLatLng(field.centroid);
                   window.setTimeout(scrollToMap, 0);
                 }}
                 className={`w-full rounded-xl border p-2.5 text-left transition-colors ${
@@ -792,7 +947,7 @@ export default function PotentialFieldView({
            ============================================================ */}
         <main
           ref={mapContainerRef}
-          className="relative z-10 w-full h-[420px] min-h-[420px] shrink-0 lg:h-full lg:flex-1"
+          className="relative z-10 w-full h-[420px] min-h-[420px] shrink-0 rounded-xl overflow-hidden border border-white/10 bg-[#050505] lg:h-full lg:flex-1"
         >
           <MapContainer
             center={[-7.15, 110.14]}
@@ -809,19 +964,19 @@ export default function PotentialFieldView({
             <CameraBoundsUpdater
               selectedKab={selectedKab}
               selectedPotential={activePotential}
-              potentialFields={filteredPotentialFields}
+              potentialFields={renderedPotentialFields}
             />
             <TileLayer
               url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
               attribution="© Esri • SIGI PUPR • SRTM • Landsat LC"
             />
-            <Pane name="potential-popup-pane" style={{ zIndex: 900 }} />
-
             {/* 1. LAYER BATAS KABUPATEN */}
             {layers.batasKab && batasKabGeoJson && (
               <GeoJSON
                 key={`batas-${selectedKabId}`}
                 data={batasKabGeoJson}
+                interactive={false}
+                onEachFeature={(_feature, layer) => disablePathPointerEvents(layer)}
                 style={(feature) => {
                   const nama = getPropFlexible(
                     feature?.properties || {},
@@ -837,6 +992,7 @@ export default function PotentialFieldView({
                     fillColor: isCurrent ? "#ec4899" : "transparent",
                     fillOpacity: isCurrent ? 0.12 : 0,
                     dashArray: isCurrent ? undefined : "4 4",
+                    renderer: canvasRenderer,
                   };
                 }}
               />
@@ -846,17 +1002,20 @@ export default function PotentialFieldView({
             {layers.kontur && konturGeoJson && (
               <GeoJSON
                 data={konturGeoJson}
+                interactive={false}
+                onEachFeature={(_feature, layer) => disablePathPointerEvents(layer)}
                 style={{
                   color: "#f59e0b",
                   weight: 0.9,
                   opacity: 0.45,
+                  renderer: canvasRenderer,
                 }}
               />
             )}
 
             {/* 3 & 4. LAYER SAWAH EKSISTING + LC NILAI PIXEL */}
             {(layers.sawahEksisting || layers.lcPixel) &&
-              filteredSawah.map((sawah) => {
+              renderedSawah.map((sawah) => {
                 if (!sawah.geometry) return null;
                 const fillColor = layers.lcPixel
                   ? LC_PIXEL_COLORS[sawah.lcPixelValue] || "#10b981"
@@ -871,12 +1030,12 @@ export default function PotentialFieldView({
                       color: "#ffffff",
                       weight: 0.8,
                       fillOpacity: 0.55,
+                      renderer: canvasRenderer,
                     }}
-                    eventHandlers={{
-                      click: () => setSelectedPotential(null),
-                    }}
+                    interactive={false}
+                    onEachFeature={(_feature, layer) => disablePathPointerEvents(layer)}
                   >
-                    <Popup pane="potential-popup-pane" className="terracorp-dark-popup">
+                    <Popup pane="popupPane" className="terracorp-dark-popup">
                       <div className="bg-[#09090d] text-white p-1 min-w-[200px] text-xs space-y-1">
                         <div className="font-bold text-sm">{sawah.namaBlok}</div>
                         <div className="text-zinc-400">{sawah.kabupaten}</div>
@@ -923,21 +1082,60 @@ export default function PotentialFieldView({
             {/* 5. LAYER PREDIKSI LAHAN SAWAH BARU */}
             {layers.potentialNew && (
               <Pane name="potential-fields-pane" style={{ zIndex: 650 }}>
-                {filteredPotentialFields.map((field) => (
+                {renderedPotentialFields.map((field) => (
                   <GeoJSON
                     key={`pot-${effectiveSelectedKabId}-${filteredPotentialFields.length}-${layers.potentialNew}-${field.id}`}
                     data={field.geometry}
+                    pane="potential-fields-pane"
+                    interactive={true}
                     style={{
                       fillColor: "#06b6d4",
                       fillOpacity: 0.55,
                       color: "#22d3ee",
                       weight: activePotential?.id === field.id ? 3 : 2.5,
                       dashArray: "6 4",
+                      renderer: potentialSvgRenderer,
                     }}
-                    eventHandlers={{
-                      click: () => {
+                    onEachFeature={(_feature, layer) => {
+                      const pathLayer = layer as L.Path;
+                      layer.bindPopup(
+                        buildPopupHtml(
+                          field,
+                          potentialWaterSources.get(field.id),
+                          lang
+                        ),
+                        {
+                          pane: "popupPane",
+                          maxWidth: 320,
+                          className: "terracrop-pot-popup",
+                        }
+                      );
+                      layer.on("mouseover", () => {
+                        pathLayer.bringToFront();
+                        pathLayer.setStyle({ weight: 3 });
+                        (pathLayer.getElement() as SVGElement | null)?.style.setProperty(
+                          "cursor",
+                          "pointer"
+                        );
+                      });
+                      layer.on("mouseout", () => {
+                        pathLayer.setStyle({
+                          weight: activePotential?.id === field.id ? 3 : 2.5,
+                        });
+                        (pathLayer.getElement() as SVGElement | null)?.style.setProperty(
+                          "cursor",
+                          "default"
+                        );
+                      });
+                      layer.on("click", (event: L.LeafletMouseEvent) => {
+                        L.DomEvent.stopPropagation(event);
                         setSelectedPotential(field);
-                      },
+                        setPopupMode("map");
+                        setPopupLatLng([event.latlng.lat, event.latlng.lng]);
+                        (layer as L.Layer & {
+                          openPopup: (latlng?: L.LatLngExpression) => void;
+                        }).openPopup(event.latlng);
+                      });
                     }}
                   >
                     <Tooltip sticky>
@@ -962,6 +1160,7 @@ export default function PotentialFieldView({
             {selectedPotentialWaterConnection && (
               <Polyline
                 positions={selectedPotentialWaterConnection}
+                interactive={false}
                 pathOptions={{
                   color: "#67e8f9",
                   weight: 2.5,
@@ -971,27 +1170,23 @@ export default function PotentialFieldView({
               />
             )}
 
-            {activePotential && (
-              <Popup
-                pane="potential-popup-pane"
-                key={`potential-popup-${activePotential.id}`}
-                position={activePotential.centroid}
-                eventHandlers={{
-                  remove: () => setSelectedPotential(null),
+            {activePotential && popupMode === "sidebar" && (
+              <PotentialZonePopup
+                field={activePotential}
+                position={popupLatLng || activePotential.centroid}
+                waterSource={potentialWaterSources.get(activePotential.id)}
+                lang={lang}
+                onRemove={() => {
+                  setSelectedPotential(null);
+                  setPopupLatLng(null);
                 }}
-              >
-                {renderPotentialZonePopup(
-                  activePotential,
-                  potentialWaterSources.get(activePotential.id),
-                  lang
-                )}
-              </Popup>
+              />
             )}
 
             {/* 6. LAYER BENDUNGAN & EMBUNG (SIGI) */}
             {layers.sigiWater && (
-              <Pane name="reservoirs-top-pane" style={{ zIndex: 750 }}>
-              {filteredReservoirs.map((feat, idx) => {
+              <Pane name="reservoirs-top-pane" style={{ zIndex: 680 }}>
+              {renderedReservoirs.map((feat, idx) => {
                 const [lng, lat] = feat.geometry.coordinates;
                 const props = feat.properties || {};
                 const isDam =
@@ -1011,14 +1206,8 @@ export default function PotentialFieldView({
                   ["kapasitas", "kapasitas_tampung", "teknis_volume_tampung_total_m3"],
                   "Tidak tersedia"
                 );
-                return (
-                  <Marker
-                    key={`p2-res-${idx}-${lat}-${lng}`}
-                    position={[lat, lng]}
-                    icon={isDam ? damIcon : embungIcon}
-                  >
-                    <Tooltip>{nama}</Tooltip>
-                    <Popup pane="potential-popup-pane" className="terracorp-dark-popup">
+                const popup = (
+                  <Popup pane="popupPane" className="terracorp-dark-popup">
                       <div className="bg-[#09090d] text-white p-1 text-xs">
                         <div className="font-mono text-[10px] text-sky-400 uppercase font-bold">
                           {isDam
@@ -1033,7 +1222,32 @@ export default function PotentialFieldView({
                         <div className="text-zinc-400">Status: {status}</div>
                         <div className="text-zinc-400">Kapasitas: {capacity}</div>
                       </div>
-                    </Popup>
+                  </Popup>
+                );
+
+                return useCanvasReservoirs ? (
+                  <CircleMarker
+                    key={`p2-res-${idx}-${lat}-${lng}`}
+                    center={[lat, lng]}
+                    radius={isDam ? 7 : 6}
+                    pathOptions={{
+                      color: "#ffffff",
+                      weight: 2,
+                      fillColor: isDam ? "#3b82f6" : "#f59e0b",
+                      fillOpacity: 1,
+                    }}
+                  >
+                    <Tooltip>{nama}</Tooltip>
+                    {popup}
+                  </CircleMarker>
+                ) : (
+                  <Marker
+                    key={`p2-res-${idx}-${lat}-${lng}`}
+                    position={[lat, lng]}
+                    icon={isDam ? damIcon : embungIcon}
+                  >
+                    <Tooltip>{nama}</Tooltip>
+                    {popup}
                   </Marker>
                 );
               })}

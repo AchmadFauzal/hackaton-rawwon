@@ -77,6 +77,18 @@ body {
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif !important;
 }
 
+.leaflet-popup-pane {
+  z-index: 1200 !important;
+}
+
+.leaflet-tooltip-pane {
+  z-index: 1150 !important;
+}
+
+.leaflet-overlay-pane svg path.leaflet-interactive {
+  pointer-events: auto;
+}
+
 .leaflet-control-attribution {
   background: rgba(5, 5, 5, 0.8) !important;
   color: #a1a1aa !important;

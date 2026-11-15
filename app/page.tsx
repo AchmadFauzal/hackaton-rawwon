@@ -579,7 +579,7 @@ export default function NasaHackathonDashboard() {
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col w-full bg-[#050505] text-white font-sans lg:h-screen lg:overflow-hidden">
+    <div className="relative min-h-screen flex flex-col w-full overflow-x-hidden bg-[#050505] text-white font-sans lg:h-screen lg:overflow-hidden">
       {/* Paksa agar di HP (< 1024px) scroll body tidak pernah terkunci oleh globals.css */}
       <style>{`
         @media (max-width: 1023px) {
@@ -954,7 +954,7 @@ export default function NasaHackathonDashboard() {
           </div>
 
           {/* Container Peta */}
-          <div className="relative w-full h-[460px] sm:h-[520px] lg:h-full lg:flex-1 rounded-xl lg:rounded-none overflow-hidden border border-white/15 lg:border-0 bg-[#050505]">
+          <div className="relative w-full h-[380px] sm:h-[440px] lg:h-full lg:flex-1 rounded-xl lg:rounded-none overflow-hidden border border-white/15 lg:border-0 bg-[#050505]">
             <MapComponent
               center={mapCenter}
               zoom={activeKabupaten ? 11 : 9}
@@ -968,11 +968,11 @@ export default function NasaHackathonDashboard() {
             />
 
             {/* Basemap Switcher */}
-            <div className="absolute bottom-4 right-3 lg:bottom-6 lg:right-4 z-[1000]">
+            <div className="absolute bottom-3 right-2 lg:bottom-6 lg:right-4 z-[1000]">
               <div className="relative">
                 <button
                   onClick={() => setShowLayerMenu(!showLayerMenu)}
-                  className="bg-[#050505]/95 hover:bg-[#111114] text-white px-3 sm:px-4 py-2 rounded-lg shadow-2xl border border-white/15 flex items-center gap-2 text-[11px] sm:text-xs font-semibold cursor-pointer transition-colors"
+                  className="bg-[#050505]/95 hover:bg-[#111114] text-white px-2.5 py-1.5 rounded-lg shadow-2xl border border-white/15 flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer transition-colors"
                 >
                   <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-pink-400" />
                   <span>Basemap: {activeBasemap.toUpperCase()}</span>
@@ -1011,11 +1011,17 @@ export default function NasaHackathonDashboard() {
 
             {/* Map Prompt Hint */}
             {!selectedSawah && (
-              <div className="absolute top-3 right-3 lg:top-4 lg:right-4 z-[1000] bg-[#050505]/90 backdrop-blur-md border border-white/15 px-3 py-2 rounded-lg shadow-2xl text-[11px] sm:text-xs text-zinc-300 max-w-[230px] sm:max-w-xs pointer-events-none">
+              <div className="hidden lg:block absolute top-3 right-3 lg:top-4 lg:right-4 z-[1000] bg-[#050505]/90 backdrop-blur-md border border-white/15 px-3 py-2 rounded-lg shadow-2xl text-[11px] sm:text-xs text-zinc-300 max-w-[230px] sm:max-w-xs pointer-events-none">
                 {t.mapPrompt}
               </div>
             )}
           </div>
+
+          {!selectedSawah && (
+            <div className="lg:hidden mb-2 rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[11px] leading-tight text-zinc-300">
+              {t.mapPrompt}
+            </div>
+          )}
 
           {/* Mobile Telemetry Card (Tampil rapi tepat di bawah peta saat sawah diklik di HP) */}
           {renderTelemetryCard(true)}

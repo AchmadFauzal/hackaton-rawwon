@@ -66,6 +66,7 @@ export default function Map({ activeBasemap }: MapProps) {
       zoom={9}
       scrollWheelZoom={true}
       zoomControl={false}
+      preferCanvas={true}
       className="w-full h-full z-0"
     >
       <TileLayerSwitcher activeBasemap={activeBasemap} />
