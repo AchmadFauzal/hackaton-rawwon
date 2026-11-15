@@ -24,6 +24,8 @@ import {
   getPropFlexible,
   haversineKm,
   normalizeKabName,
+  analyzePolygonGeometry,
+  enrichSawahWithReservoirs,
   PotentialNewFieldPrediction,
 } from "@/lib/geodataEngine";
 type LatLngBounds = [[number, number], [number, number]];
@@ -373,6 +375,9 @@ export default function PotentialFieldView({
   });
   const [potentialRawFeatures, setPotentialRawFeatures] = useState<any[]>([]);
   const [potentialSummary, setPotentialSummary] = useState<PotentialSummary[]>([]);
+  const [allExistingSawah, setAllExistingSawah] = useState<
+    ComputedSawahPrediction[]
+  >([]);
   const [hasUserSelectedKabupaten, setHasUserSelectedKabupaten] = useState(false);
   const [selectedPotential, setSelectedPotential] =
     useState<PotentialNewFieldPrediction | null>(null);
@@ -388,12 +393,87 @@ export default function PotentialFieldView({
     () => L.canvas({ padding: 0.3, pane: "contour-pane" }),
     []
   );
+  const potentialKabupatenList = useMemo(() => {
+    const features = Array.isArray(batasKabGeoJson?.features)
+      ? batasKabGeoJson.features
+      : [];
+    const allKabupaten = features
+      .map((feature: any, index: number) => {
+        const properties = feature.properties || {};
+        const nama = getPropFlexible(properties, [
+          "WADMKK",
+          "KAB_KOTA",
+          "KABUPATEN",
+          "NAMOBJ",
+          "NAME_2",
+          "kota_kab",
+        ]);
+        if (!nama || !feature.geometry) return null;
+        const { centroid, bounds } = analyzePolygonGeometry(feature.geometry);
+        return {
+          id: `potential-kab-${index}-${nama}`,
+          nama,
+          provinsi: getPropFlexible(
+            properties,
+            ["WADMPR", "PROVINSI", "NAME_1", "propinsi"],
+            "Jawa"
+          ),
+          center: centroid,
+          bounds,
+          geometry: feature.geometry,
+        };
+      })
+      .filter(Boolean) as KabupatenOption[];
+    return allKabupaten.length > 0 ? allKabupaten : kabupatenList;
+  }, [batasKabGeoJson, kabupatenList]);
 
   useEffect(() => {
     const updateViewport = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", updateViewport);
     return () => window.removeEventListener("resize", updateViewport);
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    fetch("/data/sawah_existing.geojson")
+      .then((response) => {
+        if (!response.ok) throw new Error("Gagal memuat sawah existing Jawa.");
+        return response.json();
+      })
+      .then((data) => {
+        if (!isMounted) return;
+        const enriched = enrichSawahWithReservoirs(
+          data,
+          reservoirs,
+          "Jawa"
+        );
+        const template = sawahList[0];
+        if (!template) return;
+        setAllExistingSawah(
+          enriched.map((sawah) => ({
+            ...template,
+            ...sawah,
+            id: sawah.id,
+            namaBlok: sawah.namaBlok,
+            kabupaten: sawah.kabupaten,
+            provinsi: sawah.provinsi,
+            luasHa: sawah.luasHa,
+            centroid: sawah.centroid,
+            geometry: sawah.geometry,
+            properties: sawah.properties,
+            potensiPerluasanHa: 0,
+          }))
+        );
+      })
+      .catch((error) => {
+        console.error("Error loading all existing paddy fields:", error);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [reservoirs, sawahList]);
 
   useEffect(() => {
     let isMounted = true;
@@ -438,56 +518,37 @@ export default function PotentialFieldView({
   }, [potentialSummary]);
 
   const effectiveSelectedKabId = useMemo(() => {
-    if (selectedKabId !== "ALL" || hasUserSelectedKabupaten || !potentialSummary.length) {
-      return selectedKabId;
-    }
-    const defaultKab = kabupatenList.find(
-      (kabupaten) => normalizeKabName(kabupaten.nama) === "blitar"
-    );
-    const defaultSummary = defaultKab
-      ? potentialSummaryByKabupaten.get(normalizeKabName(defaultKab.nama))
-      : undefined;
-    if (!defaultKab || (defaultSummary && defaultSummary.candidate_zones > 0)) {
-      return selectedKabId;
-    }
-    return (
-      kabupatenList.find(
-        (kabupaten) =>
-          (potentialSummaryByKabupaten.get(normalizeKabName(kabupaten.nama))
-            ?.candidate_zones || 0) > 0
-      )?.id || selectedKabId
-    );
+    if (selectedKabId === "ALL" && !hasUserSelectedKabupaten) return "ALL";
+    return selectedKabId;
   }, [
     hasUserSelectedKabupaten,
-    kabupatenList,
-    potentialSummary.length,
-    potentialSummaryByKabupaten,
     selectedKabId,
   ]);
 
   const selectedKab = useMemo(
-    () => kabupatenList.find((k) => k.id === effectiveSelectedKabId) || null,
-    [kabupatenList, effectiveSelectedKabId]
+    () => potentialKabupatenList.find((k) => k.id === effectiveSelectedKabId) || null,
+    [potentialKabupatenList, effectiveSelectedKabId]
   );
 
   // Filter sawah & reservoir berdasarkan Kabupaten terpilih
   const filteredSawah = useMemo(() => {
-    if (!selectedKab) return sawahList;
+    const sourceSawah = allExistingSawah.length > 0 ? allExistingSawah : sawahList;
+    if (!selectedKab) return sourceSawah;
     const target = selectedKab.nama.toUpperCase().replace(/^KABUPATEN\s+|^KOTA\s+/i, "");
-    const matched = sawahList.filter((s) =>
+    const matched = sourceSawah.filter((s) =>
       s.kabupaten.toUpperCase().includes(target)
     );
     // Fallback bounding box jika nama kabupaten berbeda format
     if (matched.length > 0) return matched;
     const [[minLat, minLng], [maxLat, maxLng]] = selectedKab.bounds;
-    return sawahList.filter(
+    return sourceSawah.filter(
       (s) =>
         s.centroid[0] >= minLat - 0.1 &&
         s.centroid[0] <= maxLat + 0.1 &&
         s.centroid[1] >= minLng - 0.1 &&
         s.centroid[1] <= maxLng + 0.1
     );
-  }, [sawahList, selectedKab]);
+  }, [allExistingSawah, sawahList, selectedKab]);
 
   const filteredReservoirs = useMemo(() => {
     if (!selectedKab) {
@@ -746,7 +807,7 @@ export default function PotentialFieldView({
                   ? "All Potential Districts (Semua Wilayah Potensial)"
                   : "All Potential Districts (Semua Wilayah Potensial)"}
               </option>
-              {kabupatenList.map((kab) => (
+              {potentialKabupatenList.map((kab) => (
                 <option key={kab.id} value={kab.id}>
                   {kab.nama} ({kab.provinsi}) •{" "}
                   {potentialSummaryByKabupaten.get(normalizeKabName(kab.nama))
